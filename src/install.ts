@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { DEFAULT_AUDIT_LOG_PATH, DEFAULT_BACKEND_SNAPSHOT, GRAPH_TOOL_NAMES } from './constants.js';
 import { snapshotMergedConfig } from './config.js';
 import { ensureDir, fileExists, readJsonFile, safeJsonStringify, timestampId, writeJsonFile } from './utils.js';
@@ -28,11 +29,17 @@ const GRAPH_TOOL_ALLOWLIST = [
   ...GRAPH_TOOL_NAMES.map((toolName) => `mcp__mcp-graph__${toolName}`),
 ];
 
+interface GraphLaunchSpec {
+  command: string;
+  args: string[];
+}
+
 export async function installMcpGraph(options: InstallOptions = {}): Promise<InstallSummary> {
   const cwd = options.cwd ?? process.cwd();
   const homeDir = options.homeDir ?? process.env.HOME ?? process.env.USERPROFILE ?? cwd;
   const backendPath = options.backendPath ?? DEFAULT_BACKEND_SNAPSHOT;
   const auditLogPath = options.auditLogPath ?? DEFAULT_AUDIT_LOG_PATH;
+  const graphLaunch = await resolveGraphLaunchSpec();
   const targets = options.targets ?? await detectInstallTargets(homeDir);
   const changedFiles: string[] = [];
   const backups: string[] = [];
@@ -59,19 +66,19 @@ export async function installMcpGraph(options: InstallOptions = {}): Promise<Ins
 
   for (const target of targets) {
     if (target === 'claude') {
-      const result = await installClaude({ homeDir, backendPath, auditLogPath, dryRun: options.dryRun });
+      const result = await installClaude({ homeDir, backendPath, auditLogPath, graphLaunch, dryRun: options.dryRun });
       changedFiles.push(...result.changedFiles);
       backups.push(...result.backups);
       continue;
     }
     if (target === 'codex') {
-      const result = await installCodex({ homeDir, backendPath, auditLogPath, dryRun: options.dryRun });
+      const result = await installCodex({ homeDir, backendPath, auditLogPath, graphLaunch, dryRun: options.dryRun });
       changedFiles.push(...result.changedFiles);
       backups.push(...result.backups);
       continue;
     }
     if (target === 'opencode') {
-      const result = await installOpenCode({ homeDir, backendPath, auditLogPath, dryRun: options.dryRun });
+      const result = await installOpenCode({ homeDir, backendPath, auditLogPath, graphLaunch, dryRun: options.dryRun });
       changedFiles.push(...result.changedFiles);
       backups.push(...result.backups);
     }
@@ -124,16 +131,18 @@ async function installClaude({
   homeDir,
   backendPath,
   auditLogPath,
+  graphLaunch,
   dryRun,
 }: {
   homeDir: string;
   backendPath: string;
   auditLogPath: string;
+  graphLaunch: GraphLaunchSpec;
   dryRun?: boolean;
 }): Promise<{ changedFiles: string[]; backups: string[] }> {
   const changedFiles: string[] = [];
   const backups: string[] = [];
-  const entry = createClaudeGraphEntry(backendPath, auditLogPath);
+  const entry = createClaudeGraphEntry(graphLaunch, backendPath, auditLogPath);
 
   for (const filePath of [
     path.join(homeDir, '.claude.json'),
@@ -191,11 +200,13 @@ async function installOpenCode({
   homeDir,
   backendPath,
   auditLogPath,
+  graphLaunch,
   dryRun,
 }: {
   homeDir: string;
   backendPath: string;
   auditLogPath: string;
+  graphLaunch: GraphLaunchSpec;
   dryRun?: boolean;
 }): Promise<{ changedFiles: string[]; backups: string[] }> {
   const filePath = await resolveOpenCodeConfigPath(homeDir);
@@ -205,7 +216,7 @@ async function installOpenCode({
     mcp: {
       'mcp-graph': {
         type: 'local',
-        command: ['npx', '-y', 'mcp-graph'],
+        command: [graphLaunch.command, ...graphLaunch.args],
         enabled: true,
         environment: {
           MCP_GRAPH_CONFIG_PATH: backendPath,
@@ -225,11 +236,13 @@ async function installCodex({
   homeDir,
   backendPath,
   auditLogPath,
+  graphLaunch,
   dryRun,
 }: {
   homeDir: string;
   backendPath: string;
   auditLogPath: string;
+  graphLaunch: GraphLaunchSpec;
   dryRun?: boolean;
 }): Promise<{ changedFiles: string[]; backups: string[] }> {
   const filePath = path.join(homeDir, '.codex', 'config.toml');
@@ -238,8 +251,8 @@ async function installCodex({
   const stripped = stripTomlSections(existing, 'mcp_servers');
   const block = [
     '[mcp_servers.mcp-graph]',
-    'command = "npx"',
-    'args = ["-y", "mcp-graph"]',
+    `command = ${tomlString(graphLaunch.command)}`,
+    `args = [${graphLaunch.args.map((arg) => tomlString(arg)).join(', ')}]`,
     `env = { MCP_GRAPH_CONFIG_PATH = ${tomlString(backendPath)}, MCP_GRAPH_AUDIT_LOG_PATH = ${tomlString(auditLogPath)} }`,
     '',
   ].join('\n');
@@ -327,10 +340,10 @@ function stripTomlSections(text: string, sectionRoot: string): string {
   return output.join('\n').replace(/\n{3,}/g, '\n\n');
 }
 
-function createClaudeGraphEntry(backendPath: string, auditLogPath: string): Record<string, unknown> {
+function createClaudeGraphEntry(graphLaunch: GraphLaunchSpec, backendPath: string, auditLogPath: string): Record<string, unknown> {
   return {
-    command: 'npx',
-    args: ['-y', 'mcp-graph'],
+    command: graphLaunch.command,
+    args: graphLaunch.args,
     env: {
       MCP_GRAPH_CONFIG_PATH: backendPath,
       MCP_GRAPH_AUDIT_LOG_PATH: auditLogPath,
@@ -354,4 +367,29 @@ async function resolveOpenCodeConfigPath(homeDir: string): Promise<string> {
   }
 
   return path.join(homeDir, '.opencode.json');
+}
+
+async function resolveGraphLaunchSpec(): Promise<GraphLaunchSpec> {
+  const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+  const builtCliPath = path.join(moduleDir, 'cli.js');
+
+  if (await fileExists(builtCliPath)) {
+    return {
+      command: process.execPath,
+      args: [builtCliPath],
+    };
+  }
+
+  const sourceCliPath = path.join(moduleDir, 'cli.ts');
+  const repoRoot = path.resolve(moduleDir, '..');
+  const tsxBinary = path.join(repoRoot, 'node_modules', '.bin', process.platform === 'win32' ? 'tsx.cmd' : 'tsx');
+
+  if (await fileExists(sourceCliPath) && await fileExists(tsxBinary)) {
+    return {
+      command: tsxBinary,
+      args: [sourceCliPath],
+    };
+  }
+
+  throw new Error('Unable to locate a runnable mcp-graph entrypoint. Run `npm install && npm run build` before `install`.');
 }

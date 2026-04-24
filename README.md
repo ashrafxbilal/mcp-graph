@@ -54,36 +54,46 @@ This gives you token savings without depending on any external code-executor rep
 
 ## Install
 
-### Local development
+### Clone and build
 
 ```sh
+git clone https://github.com/ashrafxbilal/mcp-graph.git
+cd mcp-graph
 npm install
 npm run build
 ```
 
-### Global install
+Then run the CLI locally:
 
 ```sh
-npm install -g .
+node dist/cli.js --help
 ```
 
-Then run:
+The installer rewrites supported client configs to point at this local clone by absolute path. It does not require a published npm package.
+
+## Quick Start
+
+### 1. Install from a local clone
 
 ```sh
-mcp-graph --help
+git clone https://github.com/ashrafxbilal/mcp-graph.git
+cd mcp-graph
+npm install
+npm run build
+node dist/cli.js install
 ```
 
-### One-command install for end users
+If you want to target specific clients:
 
 ```sh
-npx -y mcp-graph install
+node dist/cli.js install --targets claude,codex,opencode
 ```
 
-This command:
+This install command:
 
 - discovers your existing MCPs from supported configs
 - writes `~/.mcp-graph/backends.json`
-- backs up and rewrites supported client configs so they point only to `mcp-graph`
+- backs up and rewrites supported client configs so they point only to this local `mcp-graph` checkout
 
 Supported install targets:
 
@@ -91,24 +101,10 @@ Supported install targets:
 - Codex
 - OpenCode
 
-## Quick Start
-
-### 1. Install in one command
-
-```sh
-npx -y mcp-graph install
-```
-
-If you want to target specific clients:
-
-```sh
-npx -y mcp-graph install --targets claude,codex,opencode
-```
-
 ### 2. Snapshot your current MCP inventory manually
 
 ```sh
-mcp-graph snapshot --output ~/.mcp-graph/backends.json
+node dist/cli.js snapshot --output ~/.mcp-graph/backends.json
 ```
 
 This merges MCPs from the local machine into one backend file.
@@ -132,8 +128,8 @@ Example `~/.claude.json` entry:
 {
   "mcpServers": {
     "mcp-graph": {
-      "command": "npx",
-      "args": ["-y", "mcp-graph"],
+      "command": "/absolute/path/to/node",
+      "args": ["/absolute/path/to/mcp-graph/dist/cli.js"],
       "env": {
         "MCP_GRAPH_CONFIG_PATH": "/Users/your-user/.mcp-graph/backends.json",
         "MCP_GRAPH_AUDIT_LOG_PATH": "/Users/your-user/.mcp-graph/audit.log"
@@ -161,8 +157,8 @@ Example `~/.codex/config.toml` snippet:
 
 ```toml
 [mcp_servers.mcp-graph]
-command = "npx"
-args = ["-y", "mcp-graph"]
+command = "/absolute/path/to/node"
+args = ["/absolute/path/to/mcp-graph/dist/cli.js"]
 env = { MCP_GRAPH_CONFIG_PATH = "/Users/your-user/.mcp-graph/backends.json", MCP_GRAPH_AUDIT_LOG_PATH = "/Users/your-user/.mcp-graph/audit.log" }
 ```
 
@@ -178,7 +174,7 @@ OpenCode can load `mcp-graph` as a local MCP server:
   "mcp": {
     "mcp-graph": {
       "type": "local",
-      "command": ["npx", "-y", "mcp-graph"],
+      "command": ["/absolute/path/to/node", "/absolute/path/to/mcp-graph/dist/cli.js"],
       "enabled": true,
       "environment": {
         "MCP_GRAPH_CONFIG_PATH": "/Users/your-user/.mcp-graph/backends.json",
@@ -196,31 +192,31 @@ As with Claude and Codex, the token benefit comes only if the other MCPs are mov
 ### Run the server
 
 ```sh
-mcp-graph
+node dist/cli.js
 ```
 
 ### Snapshot merged MCP config
 
 ```sh
-mcp-graph snapshot --output ~/.mcp-graph/backends.json
+node dist/cli.js snapshot --output ~/.mcp-graph/backends.json
 ```
 
 ### Inspect discovered servers and duplicate resolution
 
 ```sh
-mcp-graph inspect
+node dist/cli.js inspect
 ```
 
 With backend tool counts:
 
 ```sh
-mcp-graph inspect --tool-counts
+node dist/cli.js inspect --tool-counts
 ```
 
 ### Install and rewrite supported clients
 
 ```sh
-mcp-graph install
+node dist/cli.js install
 ```
 
 Options:

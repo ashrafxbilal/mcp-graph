@@ -113,11 +113,13 @@ describe('installMcpGraph', () => {
     };
     expect(Object.keys(opencode.mcp)).toEqual(['mcp-graph']);
     expect(opencode.mcp['mcp-graph']?.type).toBe('local');
-    expect(opencode.mcp['mcp-graph']?.command).toEqual(['npx', '-y', 'mcp-graph']);
+    expect(opencode.mcp['mcp-graph']?.command[0]).toContain('tsx');
+    expect(opencode.mcp['mcp-graph']?.command[1]).toMatch(/src\/cli\.ts$/);
 
     const codex = await fs.readFile(path.join(homeDir, '.codex', 'config.toml'), 'utf8');
     expect(codex).toContain('[mcp_servers.mcp-graph]');
     expect(codex).not.toContain('[mcp_servers.old-codex]');
+    expect(codex).not.toContain('command = "npx"');
   });
 
   it('supports dry-run without mutating files', async () => {

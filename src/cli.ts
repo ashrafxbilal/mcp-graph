@@ -119,7 +119,7 @@ function parseTargets(value?: string): InstallTarget[] | undefined {
 }
 
 function printHelp(): void {
-  process.stdout.write(`mcp-graph\n\nCommands:\n  serve               Run the MCP server over stdio (default)\n  snapshot            Merge discovered MCP configs and write a backend snapshot file\n  inspect             Print the merged server inventory and duplicate resolution\n  install             Snapshot backend MCPs and rewire Claude/Codex/OpenCode to use only mcp-graph\n\nExamples:\n  mcp-graph snapshot --output ~/.mcp-graph/backends.json\n  mcp-graph inspect --tool-counts\n  npx -y mcp-graph install\n  npx -y mcp-graph install --targets claude,codex,opencode\n  MCP_GRAPH_CONFIG_PATH=~/.mcp-graph/backends.json mcp-graph\n`);
+  process.stdout.write(`mcp-graph\n\nCommands:\n  serve               Run the MCP server over stdio (default)\n  snapshot            Merge discovered MCP configs and write a backend snapshot file\n  inspect             Print the merged server inventory and duplicate resolution\n  install             Snapshot backend MCPs and rewire Claude/Codex/OpenCode to use only mcp-graph\n\nExamples:\n  node dist/cli.js snapshot --output ~/.mcp-graph/backends.json\n  node dist/cli.js inspect --tool-counts\n  node dist/cli.js install\n  node dist/cli.js install --targets claude,codex,opencode\n  MCP_GRAPH_CONFIG_PATH=~/.mcp-graph/backends.json node dist/cli.js\n`);
 }
 
 main().catch((error) => {
