@@ -1,0 +1,60 @@
+{
+  "name": "mcp-graph",
+  "version": "0.1.0",
+  "description": "Progressive-disclosure MCP gateway that lazily indexes and proxies other MCP servers.",
+  "type": "module",
+  "bin": {
+    "mcp-graph": "dist/cli.js"
+  },
+  "main": "dist/index.js",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist",
+    "dev": "tsx src/cli.ts",
+    "start": "node dist/cli.js",
+    "snapshot": "tsx src/cli.ts snapshot",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "mock-backend": "tsx src/mock-backend.ts",
+    "smoke-test": "npm run build && node dist/smoke-test.js",
+    "prepublishOnly": "npm run check && npm test && npm run build && npm run smoke-test"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "progressive-disclosure",
+    "token-efficiency",
+    "gateway"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "toml": "^3.0.0",
+    "zod": "^3.24.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.4.0",
+    "@vitest/coverage-v8": "^3.2.4",
+    "tsx": "^4.20.3",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ashrafxbilal/mcp-graph.git"
+  },
+  "homepage": "https://github.com/ashrafxbilal/mcp-graph#readme",
+  "bugs": {
+    "url": "https://github.com/ashrafxbilal/mcp-graph/issues"
+  }
+}
