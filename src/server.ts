@@ -41,25 +41,36 @@ export async function createGraphServer(options: CreateGraphServerOptions = {}):
     },
     async ({ includeMetadata, includeDuplicates, includeToolCounts, refresh }) => {
       const inventory = await registry.getServerInventory({ includeToolCounts, refresh });
-      const servers = inventory.map(({ server: entry, toolCount }) => ({
+      const servers = inventory.entries.map(({ server: entry, toolCount, error }) => ({
         name: entry.name,
         transport: entry.transport,
         sourceKind: entry.sourceKind,
         sourceFile: entry.sourceFile,
         ...(includeMetadata ? { metadata: entry.metadata ?? {} } : {}),
         ...(includeToolCounts ? { toolCount } : {}),
+        ...(error ? { error } : {}),
       }));
 
+      const textLines = [
+        `Loaded ${servers.length} backend MCP server(s).`,
+        ...servers.map((entry) => {
+          const toolCountText = includeToolCounts && entry.toolCount !== undefined ? ` (${entry.toolCount} tools)` : '';
+          const errorText = entry.error ? ` [error: ${entry.error}]` : '';
+          return `- ${entry.name} [${entry.transport}] from ${entry.sourceFile}${toolCountText}${errorText}`;
+        }),
+      ];
+      if (inventory.errors.length > 0) {
+        textLines.push('', 'Backend errors:');
+        for (const error of inventory.errors) {
+          textLines.push(`- ${error.server}: ${error.message}`);
+        }
+      }
+
       return textResult(
-        [
-          `Loaded ${servers.length} backend MCP server(s).`,
-          ...servers.map((entry) => {
-            const toolCountText = includeToolCounts ? ` (${entry.toolCount ?? 0} tools)` : '';
-            return `- ${entry.name} [${entry.transport}] from ${entry.sourceFile}${toolCountText}`;
-          }),
-        ].join('\n'),
+        textLines.join('\n'),
         {
           servers,
+          errors: inventory.errors,
           loadedFiles: loadedConfig.loadedFiles,
           ...(includeDuplicates ? {
             duplicates: loadedConfig.duplicates.map((entry) => ({
@@ -86,8 +97,8 @@ export async function createGraphServer(options: CreateGraphServerOptions = {}):
       }),
     },
     async (params) => {
-      const matches = await registry.searchTools(params);
-      const lines = matches.map((match, index) => {
+      const result = await registry.searchTools(params);
+      const lines = result.matches.map((match, index) => {
         const base = `${index + 1}. ${match.server}.${match.tool.name}`;
         if (params.detail === 'name') {
           return base;
@@ -97,10 +108,15 @@ export async function createGraphServer(options: CreateGraphServerOptions = {}):
         }
         return `${base}\n${safeJsonStringify({ description: match.tool.description, inputSchema: match.tool.inputSchema, annotations: match.tool.annotations }, 2)}`;
       });
+      if (result.errors.length > 0) {
+        lines.push(
+          `Backend errors:\n${result.errors.map((error) => `- ${error.server}: ${error.message}`).join('\n')}`,
+        );
+      }
 
       return textResult(
         lines.length > 0 ? lines.join('\n\n') : 'No tools matched the current filter.',
-        { matches },
+        { matches: result.matches, errors: result.errors },
       );
     },
   );
@@ -157,7 +173,7 @@ export async function createGraphServer(options: CreateGraphServerOptions = {}):
         content: [{ type: 'text' as const, text: result.text }],
         structuredContent: includeStructuredResult || effectiveOutputMode !== 'content'
           ? {
-            server: serverName,
+            server: result.server,
             tool,
             truncated: result.truncated,
             outputMode: result.outputMode,
@@ -165,7 +181,7 @@ export async function createGraphServer(options: CreateGraphServerOptions = {}):
             result: includeStructuredResult || effectiveOutputMode === 'full' ? result.result : undefined,
           }
           : {
-            server: serverName,
+            server: result.server,
             tool,
             truncated: result.truncated,
             outputMode: result.outputMode,

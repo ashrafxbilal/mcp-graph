@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { GRAPH_TOOL_NAMES } from '../src/constants.js';
-import { createMockBackendConfig, getRepoRoot } from './helpers/mock-backend.js';
+import { createBackendConfig, createFailingServerDefinition, createMockBackendConfig, createMockServerDefinition, getRepoRoot } from './helpers/mock-backend.js';
 
 const execFileAsync = promisify(execFile);
 const cleanups: Array<() => Promise<void>> = [];
@@ -100,6 +100,53 @@ describe('mcp-graph CLI', () => {
     expect(parsed.serverCount).toBe(1);
     expect(parsed.totalBackendTools).toBe(2);
     expect(parsed.frontDoorToolCount).toBe(GRAPH_TOOL_NAMES.length);
+  });
+
+  it('returns partial search results and backend errors instead of failing the whole request', async () => {
+    const fixture = await createBackendConfig({
+      'mock-backend': createMockServerDefinition(),
+      broken: createFailingServerDefinition(),
+    });
+    cleanups.push(fixture.cleanup);
+
+    const repoRoot = getRepoRoot();
+    const transport = new StdioClientTransport({
+      command: path.join(repoRoot, 'node_modules', '.bin', 'tsx'),
+      args: [path.join(repoRoot, 'src', 'cli.ts')],
+      env: {
+        ...(process.env as Record<string, string | undefined>),
+        MCP_GRAPH_CONFIG_PATH: fixture.backendConfigPath,
+      } as Record<string, string>,
+      stderr: 'pipe',
+    });
+    const client = new Client({ name: 'mcp-graph-test-client', version: '0.0.0' }, { capabilities: {} });
+
+    try {
+      await client.connect(transport);
+
+      const search = await client.callTool({
+        name: 'search_tools',
+        arguments: {
+          query: 'echo',
+          detail: 'summary',
+        },
+      });
+      expect(extractText(search)).toContain('mock-backend.echo');
+      expect(extractText(search)).toContain('Backend errors:');
+      expect(extractText(search)).toContain('broken:');
+
+      const servers = await client.callTool({
+        name: 'list_servers',
+        arguments: {
+          includeToolCounts: true,
+        },
+      });
+      expect(extractText(servers)).toContain('mock-backend');
+      expect(extractText(servers)).toContain('broken');
+      expect(extractText(servers)).toContain('[error:');
+    } finally {
+      await client.close();
+    }
   });
 });
 

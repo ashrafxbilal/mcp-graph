@@ -49,6 +49,30 @@ export interface ToolMatch {
   transport: GraphTransport;
 }
 
+export interface BackendLookupError {
+  server: string;
+  message: string;
+  sourceKind: SourceKind;
+  sourceFile: string;
+  transport: GraphTransport;
+}
+
+export interface ServerInventoryEntry {
+  server: NormalizedServerConfig;
+  toolCount?: number;
+  error?: string;
+}
+
+export interface ServerInventoryResult {
+  entries: ServerInventoryEntry[];
+  errors: BackendLookupError[];
+}
+
+export interface SearchToolsResult {
+  matches: ToolMatch[];
+  errors: BackendLookupError[];
+}
+
 export interface SearchToolParams {
   query?: string;
   server?: string;

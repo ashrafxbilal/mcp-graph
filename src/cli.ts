@@ -60,7 +60,8 @@ async function handleInspect(args: string[]): Promise<void> {
       sourceKind: entry.sourceKind,
       sourceFile: entry.sourceFile,
       ...(includeToolCounts ? {
-        toolCount: inventory?.find((item) => item.server.name === entry.name)?.toolCount ?? 0,
+        toolCount: inventory?.entries.find((item) => item.server.name === entry.name)?.toolCount ?? 0,
+        error: inventory?.entries.find((item) => item.server.name === entry.name)?.error,
       } : {}),
     })),
     duplicates: config.duplicates.map((entry) => ({
@@ -69,8 +70,9 @@ async function handleInspect(args: string[]): Promise<void> {
       discardedFrom: entry.discarded.sourceFile,
     })),
     ...(includeToolCounts ? {
-      totalBackendTools: inventory?.reduce((sum, item) => sum + (item.toolCount ?? 0), 0) ?? 0,
+      totalBackendTools: inventory?.entries.reduce((sum, item) => sum + (item.toolCount ?? 0), 0) ?? 0,
       frontDoorToolCount: GRAPH_TOOL_NAMES.length,
+      errors: inventory?.errors ?? [],
     } : {}),
   };
   process.stdout.write(`${safeJsonStringify(payload, 2)}\n`);

@@ -7,11 +7,14 @@ import { ToolIndexCache } from './caching/tool-index-cache.js';
 import { renderToolResult, type GraphToolResult } from './formatting/result-shaper.js';
 import { AuditLogger } from './logger.js';
 import type {
+  BackendLookupError,
   BatchCallToolParams,
   CallToolParams,
   LoadedServerConfig,
   NormalizedServerConfig,
+  SearchToolsResult,
   SearchToolParams,
+  ServerInventoryResult,
   ToolMatch,
 } from './types.js';
 import { scoreText } from './utils.js';
@@ -170,31 +173,59 @@ export class GraphRegistry {
     return [...this.configByName.values()].sort((left, right) => left.name.localeCompare(right.name));
   }
 
-  async getServerInventory(params: { server?: string; includeToolCounts?: boolean; refresh?: boolean } = {}): Promise<Array<{
-    server: NormalizedServerConfig;
-    toolCount?: number;
-  }>> {
+  async getServerInventory(params: { server?: string; includeToolCounts?: boolean; refresh?: boolean } = {}): Promise<ServerInventoryResult> {
     const configs = this.filterServers(params.server);
     if (!params.includeToolCounts) {
-      return configs.map((config) => ({ server: config }));
+      return {
+        entries: configs.map((config) => ({ server: config })),
+        errors: [],
+      };
     }
 
-    return Promise.all(
-      configs.map(async (config) => ({
-        server: config,
-        toolCount: (await this.getSession(config.name).listTools(params.refresh ?? false)).length,
-      })),
-    );
+    const entries = [];
+    const errors: BackendLookupError[] = [];
+
+    for (const config of configs) {
+      try {
+        entries.push({
+          server: config,
+          toolCount: (await this.getSession(config.name).listTools(params.refresh ?? false)).length,
+        });
+      } catch (error) {
+        const backendError = this.createBackendError(config, error);
+        errors.push(backendError);
+        entries.push({
+          server: config,
+          error: backendError.message,
+        });
+        await this.logger.log('backend_inventory_error', { ...backendError });
+      }
+    }
+
+    return { entries, errors };
   }
 
-  async searchTools(params: SearchToolParams = {}): Promise<ToolMatch[]> {
+  async searchTools(params: SearchToolParams = {}): Promise<SearchToolsResult> {
     const detail = params.detail ?? 'summary';
     const limit = params.limit ?? 20;
     const serverConfigs = this.filterServers(params.server);
     const matches: ToolMatch[] = [];
+    const errors: BackendLookupError[] = [];
 
     for (const config of serverConfigs) {
-      const tools = await this.getSession(config.name).listTools(params.refresh ?? false);
+      let tools: Tool[];
+      try {
+        tools = await this.getSession(config.name).listTools(params.refresh ?? false);
+      } catch (error) {
+        const backendError = this.createBackendError(config, error);
+        errors.push(backendError);
+        await this.logger.log('backend_search_error', {
+          ...backendError,
+          query: params.query ?? '',
+        });
+        continue;
+      }
+
       for (const tool of tools) {
         const score = scoreTool(config.name, tool, params.query ?? '');
         if (params.query && score <= 0) {
@@ -215,37 +246,41 @@ export class GraphRegistry {
       }
     }
 
-    return matches
-      .sort((left, right) => {
-        if (right.score !== left.score) {
-          return right.score - left.score;
-        }
-        if (left.server !== right.server) {
-          return left.server.localeCompare(right.server);
-        }
-        return left.tool.name.localeCompare(right.tool.name);
-      })
-      .slice(0, limit);
+    return {
+      matches: matches
+        .sort((left, right) => {
+          if (right.score !== left.score) {
+            return right.score - left.score;
+          }
+          if (left.server !== right.server) {
+            return left.server.localeCompare(right.server);
+          }
+          return left.tool.name.localeCompare(right.tool.name);
+        })
+        .slice(0, limit),
+      errors,
+    };
   }
 
   async getTool(server: string, toolName: string, refresh = false): Promise<{ server: NormalizedServerConfig; tool: Tool }> {
     const config = this.requireServer(server);
-    const tools = await this.getSession(server).listTools(refresh);
+    const tools = await this.getSession(config.name).listTools(refresh);
     const tool = tools.find((entry) => entry.name === toolName);
     if (!tool) {
-      throw new Error(`Tool ${toolName} not found on server ${server}`);
+      throw new Error(this.buildToolNotFoundMessage(config.name, toolName, tools));
     }
     return { server: config, tool };
   }
 
   async callTool(params: CallToolParams): Promise<{
+    server: string;
     text: string;
     truncated: boolean;
     result: GraphToolResult;
     selectedValue: unknown;
     outputMode: 'content' | 'structured' | 'full';
   }> {
-    const config = this.requireServer(params.server);
+    const { server: config } = await this.getTool(params.server, params.tool);
     const args = params.arguments ?? {};
     const maxCharacters = params.maxCharacters ?? 12_000;
 
@@ -266,6 +301,7 @@ export class GraphRegistry {
     });
 
     return {
+      server: config.name,
       text: rendered.text,
       truncated: rendered.truncated,
       result,
@@ -373,9 +409,103 @@ export class GraphRegistry {
   private requireServer(name: string): NormalizedServerConfig {
     const config = this.configByName.get(name);
     if (!config) {
-      throw new Error(`Unknown server ${name}`);
+      const resolved = this.resolveServerCandidates(name);
+      if (resolved.length === 1) {
+        return resolved[0];
+      }
+      if (resolved.length > 1) {
+        throw new Error(`Ambiguous server ${name}. Matches: ${resolved.map((entry) => entry.name).join(', ')}`);
+      }
+
+      const suggestions = this.listServers()
+        .map((entry) => ({
+          server: entry,
+          score: this.scoreServerCandidate(entry, name),
+        }))
+        .filter((entry) => entry.score > 0)
+        .sort((left, right) => right.score - left.score || left.server.name.localeCompare(right.server.name))
+        .slice(0, 5)
+        .map((entry) => entry.server.name);
+
+      throw new Error(
+        suggestions.length > 0
+          ? `Unknown server ${name}. Did you mean: ${suggestions.join(', ')}?`
+          : `Unknown server ${name}`,
+      );
     }
     return config;
+  }
+
+  private createBackendError(config: NormalizedServerConfig, error: unknown): BackendLookupError {
+    return {
+      server: config.name,
+      message: error instanceof Error ? error.message : String(error),
+      sourceKind: config.sourceKind,
+      sourceFile: config.sourceFile,
+      transport: config.transport,
+    };
+  }
+
+  private resolveServerCandidates(name: string): NormalizedServerConfig[] {
+    const normalizedName = normalizeToken(name);
+    if (!normalizedName) {
+      return [];
+    }
+
+    const configs = this.listServers();
+    const caseInsensitive = dedupeServers(
+      configs.filter((config) => this.getServerAliases(config).some((alias) => alias.toLowerCase() === name.toLowerCase())),
+    );
+    if (caseInsensitive.length > 0) {
+      return caseInsensitive;
+    }
+
+    const normalizedExact = dedupeServers(
+      configs.filter((config) => this.getServerAliases(config).some((alias) => normalizeToken(alias) === normalizedName)),
+    );
+    if (normalizedExact.length > 0) {
+      return normalizedExact;
+    }
+
+    return dedupeServers(
+      configs.filter((config) => this.getServerAliases(config).some((alias) => {
+        const normalizedAlias = normalizeToken(alias);
+        return normalizedAlias.includes(normalizedName) || normalizedName.includes(normalizedAlias);
+      })),
+    );
+  }
+
+  private getServerAliases(config: NormalizedServerConfig): string[] {
+    const aliases = new Set<string>([config.name]);
+    const metadataName = typeof config.metadata?.name === 'string' ? config.metadata.name : undefined;
+    if (metadataName) {
+      aliases.add(metadataName);
+    }
+    return [...aliases];
+  }
+
+  private scoreServerCandidate(config: NormalizedServerConfig, query: string): number {
+    return Math.max(...this.getServerAliases(config).map((alias) => scoreText(alias, query)));
+  }
+
+  private buildToolNotFoundMessage(serverName: string, toolName: string, tools: Tool[]): string {
+    const toolNames = tools.map((tool) => tool.name).sort((left, right) => left.localeCompare(right));
+    const suggestions = toolNames
+      .map((name) => ({ name, score: scoreText(name, toolName) }))
+      .filter((entry) => entry.score > 0)
+      .sort((left, right) => right.score - left.score || left.name.localeCompare(right.name))
+      .slice(0, 5)
+      .map((entry) => entry.name);
+
+    if (toolNames.length <= 10) {
+      return `Tool ${toolName} not found on server ${serverName}. Available tools: ${toolNames.join(', ')}`;
+    }
+
+    if (suggestions.length > 0) {
+      return `Tool ${toolName} not found on server ${serverName}. Closest matches: ${suggestions.join(', ')}`;
+    }
+
+    return `Tool ${toolName} not found on server ${serverName}`;
   }
 }
 
@@ -384,4 +514,12 @@ export function scoreTool(serverName: string, tool: Tool, query: string): number
     return 1;
   }
   return scoreText(serverName, query) + scoreText(tool.name, query) * 2 + scoreText(tool.description ?? '', query);
+}
+
+function normalizeToken(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
+function dedupeServers(configs: NormalizedServerConfig[]): NormalizedServerConfig[] {
+  return [...new Map(configs.map((config) => [config.name, config])).values()];
 }

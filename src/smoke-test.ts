@@ -47,7 +47,7 @@ async function runProxySmokeTest({ cwd, backendConfigPath }: { cwd: string; back
   const registry = new GraphRegistry(loaded, new AuditLogger());
 
   const matches = await registry.searchTools({ query: 'echo', detail: 'summary' });
-  if (matches.length !== 1 || matches[0]?.tool.name !== 'echo') {
+  if (matches.matches.length !== 1 || matches.matches[0]?.tool.name !== 'echo') {
     throw new Error(`Expected one echo tool, got ${safeJsonStringify(matches, 2)}`);
   }
 
