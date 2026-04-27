@@ -66,6 +66,19 @@ This gives you token savings without depending on any external code-executor rep
 git clone https://github.com/ashrafxbilal/mcp-kingdom.git
 cd mcp-kingdom
 npm install
+npm run setup
+```
+
+That one command:
+
+- builds the repo
+- discovers supported local clients dynamically
+- snapshots existing MCPs into `~/.mcp-kingdom`
+- rewrites Claude / Codex / OpenCode to point at this local clone
+
+If you only want the build without rewriting local configs:
+
+```sh
 npm run build
 ```
 
@@ -87,13 +100,15 @@ For client-specific setup and verification, see [INSTALL.md](INSTALL.md).
 git clone https://github.com/ashrafxbilal/mcp-kingdom.git
 cd mcp-kingdom
 npm install
-npm run build
-node dist/cli.js install
+npm run setup
 ```
 
 If you want to target specific clients:
 
 ```sh
+npm run setup:claude
+npm run setup:codex
+npm run setup:opencode
 node dist/cli.js install --targets claude,codex,opencode
 ```
 
@@ -110,6 +125,26 @@ Supported install targets:
 - Claude Desktop / Claude Code
 - Codex
 - OpenCode
+
+### Zero-Config Behavior
+
+`mcp-kingdom` is already dynamic in the parts that matter for clone-and-run installs:
+
+- it discovers client configs from the local machine instead of hardcoding paths into the repo
+- it rewrites clients to the absolute path of the current clone
+- it keeps state in `~/.mcp-kingdom`, not in the repo checkout
+- it migrates older `~/.mcp-graph` auth/snapshot state forward
+- it supports local exclusions like `--exclude-servers blade-mcp`
+
+For most users, the intended flow is:
+
+```sh
+git clone https://github.com/ashrafxbilal/mcp-kingdom.git
+cd mcp-kingdom
+npm install
+npm run setup
+npm run verify
+```
 
 ### 2. Snapshot your current MCP inventory manually
 

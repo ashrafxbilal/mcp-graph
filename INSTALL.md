@@ -16,6 +16,12 @@ If `opencode` is not on your `PATH`, use its full binary path instead.
 git clone https://github.com/ashrafxbilal/mcp-kingdom.git
 cd mcp-kingdom
 npm install
+npm run setup
+```
+
+If you only want to build without rewriting local configs:
+
+```sh
 npm run build
 ```
 
@@ -24,13 +30,25 @@ npm run build
 Install for all supported clients:
 
 ```sh
-node dist/cli.js install
+npm run setup
 ```
 
 Install only for OpenCode:
 
 ```sh
-node dist/cli.js install --targets opencode
+npm run setup:opencode
+```
+
+Install only for Claude:
+
+```sh
+npm run setup:claude
+```
+
+Install only for Codex:
+
+```sh
+npm run setup:codex
 ```
 
 The installer will:
@@ -41,6 +59,12 @@ The installer will:
 - verify `tools/list` for every backend and safe-probe read-only tools when possible
 - rewrite supported client configs so the front door is only `mcp-kingdom`
 - create backups before overwriting config files
+
+After install, you can run a broad verification pass with:
+
+```sh
+npm run verify
+```
 
 ## What OpenCode Should Look Like After Install
 
