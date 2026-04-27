@@ -6,6 +6,7 @@ Instead of exposing every tool from every connected MCP server up front, `mcp-gr
 
 Supporting docs:
 
+- [Install Guide](INSTALL.md)
 - [Architecture](docs/architecture.md)
 - [Trust Model](docs/trust-model.md)
 
@@ -70,6 +71,8 @@ node dist/cli.js --help
 ```
 
 The installer rewrites supported client configs to point at this local clone by absolute path. It does not require a published npm package.
+
+For client-specific setup and verification, see [INSTALL.md](INSTALL.md).
 
 ## Quick Start
 
