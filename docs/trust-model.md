@@ -1,8 +1,8 @@
 # Trust Model
 
-`mcp-graph` changes how MCPs are exposed to the client. It does not make an unsafe backend safe.
+`mcp-kingdom` changes how MCPs are exposed to the client. It does not make an unsafe backend safe.
 
-## What `mcp-graph` Does
+## What `mcp-kingdom` Does
 
 - discovers backend MCP definitions
 - generates a runtime policy from discovered backend tool lists
@@ -19,7 +19,7 @@
 - inspect or filter backend tool side effects
 - reduce the privileges of the original backend commands
 
-If a backend MCP runs a local binary with full user privileges, that trust boundary is unchanged after you put it behind `mcp-graph`.
+If a backend MCP runs a local binary with full user privileges, that trust boundary is unchanged after you put it behind `mcp-kingdom`.
 
 ## Practical Implications
 
@@ -27,12 +27,12 @@ If a backend MCP runs a local binary with full user privileges, that trust bound
 - remote MCPs still receive requests with whatever static headers were configured
 - auth-gated remote MCPs can require a separate `auth login` bootstrap step before they become usable through the gateway
 - the generated policy can stop newly added backend tools from appearing until you refresh or reinstall
-- if a backend could not be enumerated during install, `mcp-graph` can intentionally fall back to passthrough mode for that server to avoid breaking existing workflows
+- if a backend could not be enumerated during install, `mcp-kingdom` can intentionally fall back to passthrough mode for that server to avoid breaking existing workflows
 - the gateway still only reduces schema exposure and context growth; it does not change the security posture of the underlying tools
 
 ## Recommended Usage
 
-- use the installer so only `mcp-graph` is visible to the client
+- use the installer so only `mcp-kingdom` is visible to the client
 - keep backend snapshots in user-owned config directories
-- enable `MCP_GRAPH_AUDIT_LOG_PATH` when you want a JSONL trail of cache refreshes and proxied tool calls
+- enable `MCP_KINGDOM_AUDIT_LOG_PATH` when you want a JSONL trail of cache refreshes and proxied tool calls
 - review backend MCP definitions before snapshotting them into production workflows

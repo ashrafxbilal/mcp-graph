@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { GRAPH_TOOL_NAMES } from '../src/constants.js';
-import { installMcpGraph } from '../src/install.js';
+import { installMcpKingdom } from '../src/install.js';
 
 const tempRoots: string[] = [];
 
@@ -13,7 +13,7 @@ afterEach(async () => {
 });
 
 async function createFixtureRoot(): Promise<{ rootDir: string; homeDir: string; projectDir: string }> {
-  const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), 'mcp-graph-install-'));
+  const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), 'mcp-kingdom-install-'));
   const homeDir = path.join(rootDir, 'home');
   const projectDir = path.join(rootDir, 'project');
   tempRoots.push(rootDir);
@@ -23,8 +23,8 @@ async function createFixtureRoot(): Promise<{ rootDir: string; homeDir: string; 
   return { rootDir, homeDir, projectDir };
 }
 
-describe('installMcpGraph', () => {
-  it('rewrites Claude, Codex, and legacy OpenCode configs to use only mcp-graph', async () => {
+describe('installMcpKingdom', () => {
+  it('rewrites Claude, Codex, and legacy OpenCode configs to use only mcp-kingdom', async () => {
     const { homeDir, projectDir } = await createFixtureRoot();
 
     await fs.writeFile(
@@ -43,7 +43,7 @@ describe('installMcpGraph', () => {
     await fs.writeFile(
       path.join(homeDir, '.claude', 'settings.json'),
       JSON.stringify({
-        permissions: { allow: ['Read'] },
+        permissions: { allow: ['Read', 'mcp__mcp-graph__list_servers'] },
         mcpServers: {
           'old-claude': {
             command: 'old-claude',
@@ -68,6 +68,8 @@ describe('installMcpGraph', () => {
       JSON.stringify({
         permission: {
           read: 'allow',
+          'mcp-graph_*': 'allow',
+          'mcp_graph_*': 'allow',
           'mcp__old-opencode__list': 'allow',
         },
         mcp: {
@@ -81,22 +83,22 @@ describe('installMcpGraph', () => {
       'utf8',
     );
 
-    const result = await installMcpGraph({
+    const result = await installMcpKingdom({
       cwd: projectDir,
       homeDir,
-      backendPath: path.join(homeDir, '.mcp-graph', 'backends.json'),
-      policyPath: path.join(homeDir, '.mcp-graph', 'policy.json'),
-      auditLogPath: path.join(homeDir, '.mcp-graph', 'audit.log'),
+      backendPath: path.join(homeDir, '.mcp-kingdom', 'backends.json'),
+      policyPath: path.join(homeDir, '.mcp-kingdom', 'policy.json'),
+      auditLogPath: path.join(homeDir, '.mcp-kingdom', 'audit.log'),
       targets: ['claude', 'codex', 'opencode'],
     });
 
     expect(result.backendServerCount).toBe(4);
     expect(result.targets).toEqual(['claude', 'codex', 'opencode']);
     expect(result.backups.length).toBeGreaterThan(0);
-    expect(result.policyPath).toBe(path.join(homeDir, '.mcp-graph', 'policy.json'));
+    expect(result.policyPath).toBe(path.join(homeDir, '.mcp-kingdom', 'policy.json'));
     expect(result.policySummary.totalServers).toBe(4);
 
-    const snapshot = JSON.parse(await fs.readFile(path.join(homeDir, '.mcp-graph', 'backends.json'), 'utf8')) as {
+    const snapshot = JSON.parse(await fs.readFile(path.join(homeDir, '.mcp-kingdom', 'backends.json'), 'utf8')) as {
       mcpServers: Record<string, unknown>;
     };
     expect(Object.keys(snapshot.mcpServers).sort()).toEqual([
@@ -106,7 +108,7 @@ describe('installMcpGraph', () => {
       'project-backend',
     ]);
 
-    const policy = JSON.parse(await fs.readFile(path.join(homeDir, '.mcp-graph', 'policy.json'), 'utf8')) as {
+    const policy = JSON.parse(await fs.readFile(path.join(homeDir, '.mcp-kingdom', 'policy.json'), 'utf8')) as {
       summary: { totalServers: number };
       servers: Record<string, { mode: string }>;
     };
@@ -122,29 +124,32 @@ describe('installMcpGraph', () => {
       mcpServers: Record<string, unknown>;
       permissions: { allow: string[] };
     };
-    expect(Object.keys(settings.mcpServers)).toEqual(['mcp-graph']);
+    expect(Object.keys(settings.mcpServers)).toEqual(['mcp-kingdom']);
     for (const toolName of GRAPH_TOOL_NAMES) {
-      expect(settings.permissions.allow).toContain(`mcp__mcp-graph__${toolName}`);
+      expect(settings.permissions.allow).toContain(`mcp__mcp-kingdom__${toolName}`);
     }
+    expect(settings.permissions.allow).not.toContain('mcp__mcp-graph__list_servers');
 
     const opencode = JSON.parse(await fs.readFile(path.join(homeDir, '.opencode.json'), 'utf8')) as {
       permission: Record<string, unknown>;
       mcp: Record<string, { type: string; command: string[] }>;
     };
-    expect(Object.keys(opencode.mcp)).toEqual(['mcp-graph']);
-    expect(opencode.mcp['mcp-graph']?.type).toBe('local');
-    expect(opencode.mcp['mcp-graph']?.command[0]).toContain('tsx');
-    expect(opencode.mcp['mcp-graph']?.command[1]).toMatch(/src\/cli\.ts$/);
+    expect(Object.keys(opencode.mcp)).toEqual(['mcp-kingdom']);
+    expect(opencode.mcp['mcp-kingdom']?.type).toBe('local');
+    expect(opencode.mcp['mcp-kingdom']?.command[0]).toContain('tsx');
+    expect(opencode.mcp['mcp-kingdom']?.command[1]).toMatch(/src\/cli\.ts$/);
     expect(opencode.permission.read).toBe('allow');
     expect(Object.keys(opencode.permission)).not.toContain('mcp__old-opencode__list');
-    expect(opencode.permission['mcp-graph_*']).toBe('allow');
-    expect(opencode.permission['mcp_graph_*']).toBe('allow');
+    expect(Object.keys(opencode.permission)).not.toContain('mcp-graph_*');
+    expect(Object.keys(opencode.permission)).not.toContain('mcp_graph_*');
+    expect(opencode.permission['mcp-kingdom_*']).toBe('allow');
+    expect(opencode.permission['mcp_kingdom_*']).toBe('allow');
 
     const codex = await fs.readFile(path.join(homeDir, '.codex', 'config.toml'), 'utf8');
-    expect(codex).toContain('[mcp_servers.mcp-graph]');
+    expect(codex).toContain('[mcp_servers.mcp-kingdom]');
     expect(codex).not.toContain('[mcp_servers.old-codex]');
     expect(codex).not.toContain('command = "npx"');
-    expect(codex).toContain('MCP_GRAPH_POLICY_PATH');
+    expect(codex).toContain('MCP_KINGDOM_POLICY_PATH');
   });
 
   it('supports dry-run without mutating files', async () => {
@@ -162,18 +167,18 @@ describe('installMcpGraph', () => {
       'utf8',
     );
 
-    const result = await installMcpGraph({
+    const result = await installMcpKingdom({
       cwd: projectDir,
       homeDir,
-      backendPath: path.join(homeDir, '.mcp-graph', 'backends.json'),
-      policyPath: path.join(homeDir, '.mcp-graph', 'policy.json'),
+      backendPath: path.join(homeDir, '.mcp-kingdom', 'backends.json'),
+      policyPath: path.join(homeDir, '.mcp-kingdom', 'policy.json'),
       targets: ['claude'],
       dryRun: true,
     });
 
     expect(result.changedFiles).toContain(path.join(homeDir, '.claude', 'settings.json'));
-    expect(result.changedFiles).toContain(path.join(homeDir, '.mcp-graph', 'policy.json'));
-    await expect(fs.access(path.join(homeDir, '.mcp-graph', 'backends.json'))).rejects.toThrow();
+    expect(result.changedFiles).toContain(path.join(homeDir, '.mcp-kingdom', 'policy.json'));
+    await expect(fs.access(path.join(homeDir, '.mcp-kingdom', 'backends.json'))).rejects.toThrow();
   });
 
   it('builds policy entries for preserved backends that already exist in the snapshot', async () => {
@@ -191,9 +196,9 @@ describe('installMcpGraph', () => {
       'utf8',
     );
 
-    await fs.mkdir(path.join(homeDir, '.mcp-graph'), { recursive: true });
+    await fs.mkdir(path.join(homeDir, '.mcp-kingdom'), { recursive: true });
     await fs.writeFile(
-      path.join(homeDir, '.mcp-graph', 'backends.json'),
+      path.join(homeDir, '.mcp-kingdom', 'backends.json'),
       JSON.stringify({
         mcpServers: {
           'preserved-backend': {
@@ -204,18 +209,18 @@ describe('installMcpGraph', () => {
       'utf8',
     );
 
-    const result = await installMcpGraph({
+    const result = await installMcpKingdom({
       cwd: projectDir,
       homeDir,
-      backendPath: path.join(homeDir, '.mcp-graph', 'backends.json'),
-      policyPath: path.join(homeDir, '.mcp-graph', 'policy.json'),
+      backendPath: path.join(homeDir, '.mcp-kingdom', 'backends.json'),
+      policyPath: path.join(homeDir, '.mcp-kingdom', 'policy.json'),
       targets: ['claude'],
     });
 
     expect(result.backendServerCount).toBe(2);
     expect(result.policySummary.totalServers).toBe(2);
 
-    const policy = JSON.parse(await fs.readFile(path.join(homeDir, '.mcp-graph', 'policy.json'), 'utf8')) as {
+    const policy = JSON.parse(await fs.readFile(path.join(homeDir, '.mcp-kingdom', 'policy.json'), 'utf8')) as {
       servers: Record<string, { mode: string }>;
     };
     expect(Object.keys(policy.servers).sort()).toEqual([

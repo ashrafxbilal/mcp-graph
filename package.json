@@ -1,10 +1,10 @@
 {
-  "name": "mcp-graph",
+  "name": "mcp-kingdom",
   "version": "0.1.0",
   "description": "Progressive-disclosure MCP gateway that lazily indexes and proxies other MCP servers.",
   "type": "module",
   "bin": {
-    "mcp-graph": "dist/cli.js"
+    "mcp-kingdom": "dist/cli.js"
   },
   "main": "dist/index.js",
   "files": [
@@ -51,10 +51,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ashrafxbilal/mcp-graph.git"
+    "url": "git+https://github.com/ashrafxbilal/mcp-kingdom.git"
   },
-  "homepage": "https://github.com/ashrafxbilal/mcp-graph#readme",
+  "homepage": "https://github.com/ashrafxbilal/mcp-kingdom#readme",
   "bugs": {
-    "url": "https://github.com/ashrafxbilal/mcp-graph/issues"
+    "url": "https://github.com/ashrafxbilal/mcp-kingdom/issues"
   }
 }

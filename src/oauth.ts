@@ -53,7 +53,7 @@ export class FileOAuthClientProvider implements OAuthClientProvider {
 
   get clientMetadata(): OAuthClientMetadata {
     return {
-      client_name: 'mcp-graph',
+      client_name: 'mcp-kingdom',
       redirect_uris: [this.redirectUrl],
       grant_types: ['authorization_code', 'refresh_token'],
       response_types: ['code'],
@@ -98,7 +98,7 @@ export class FileOAuthClientProvider implements OAuthClientProvider {
   }
 
   redirectToAuthorization(authorizationUrl: URL): void {
-    process.stderr.write(`[mcp-graph] OAuth required for ${this.config.name}.\n${authorizationUrl.toString()}\n`);
+    process.stderr.write(`[mcp-kingdom] OAuth required for ${this.config.name}.\n${authorizationUrl.toString()}\n`);
     if (this.interactive) {
       void openBrowser(authorizationUrl.toString());
     }
@@ -161,7 +161,7 @@ export class FileOAuthClientProvider implements OAuthClientProvider {
 
         if (code) {
           res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-          res.end('<html><body><h1>mcp-graph auth complete</h1><p>You can close this window.</p></body></html>');
+          res.end('<html><body><h1>mcp-kingdom auth complete</h1><p>You can close this window.</p></body></html>');
           resolve(code);
           setTimeout(() => void this.stopAuthorizationListener(), 100);
           return;
@@ -169,7 +169,7 @@ export class FileOAuthClientProvider implements OAuthClientProvider {
 
         if (error) {
           res.writeHead(400, { 'content-type': 'text/html; charset=utf-8' });
-          res.end(`<html><body><h1>mcp-graph auth failed</h1><p>${error}</p></body></html>`);
+          res.end(`<html><body><h1>mcp-kingdom auth failed</h1><p>${error}</p></body></html>`);
           reject(new Error(`OAuth authorization failed: ${error}`));
           setTimeout(() => void this.stopAuthorizationListener(), 100);
           return;
@@ -181,7 +181,7 @@ export class FileOAuthClientProvider implements OAuthClientProvider {
 
       server.on('error', (error) => reject(error instanceof Error ? error : new Error(String(error))));
       server.listen(Number.parseInt(this.redirectCallbackUrl.port, 10), '127.0.0.1', () => {
-        process.stderr.write(`[mcp-graph] Waiting for OAuth callback on ${this.redirectUrl}\n`);
+        process.stderr.write(`[mcp-kingdom] Waiting for OAuth callback on ${this.redirectUrl}\n`);
       });
       this.listener = server;
     }), timeoutMs, `OAuth callback for ${this.config.name}`);
@@ -229,7 +229,7 @@ export function createOAuthProvider(config: NormalizedServerConfig, options?: { 
     return undefined;
   }
 
-  const authDir = options?.authDir ?? process.env.MCP_GRAPH_AUTH_DIR ?? DEFAULT_AUTH_DIR;
+  const authDir = options?.authDir ?? process.env.MCP_KINGDOM_AUTH_DIR ?? process.env.MCP_GRAPH_AUTH_DIR ?? DEFAULT_AUTH_DIR;
   const authFilePath = path.join(authDir, `${sanitizeServerName(config.name)}.json`);
   return new FileOAuthClientProvider(config, authFilePath, options?.interactive ?? false);
 }
@@ -326,7 +326,7 @@ function createOAuthAwareClient(
     });
 
   return {
-    client: new Client({ name: 'mcp-graph-auth-client', version: '0.1.0' }, { capabilities: {} }),
+    client: new Client({ name: 'mcp-kingdom-auth-client', version: '0.1.0' }, { capabilities: {} }),
     transport,
   };
 }

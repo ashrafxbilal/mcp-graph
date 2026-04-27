@@ -136,7 +136,7 @@ export function buildRemediation(attempts: ConnectionAttemptReport[]): string[] 
   }
 
   if (errors.some((error) => /405/.test(error))) {
-    remediation.add('This backend likely expects streamable HTTP instead of SSE. mcp-graph now tries that automatically.');
+    remediation.add('This backend likely expects streamable HTTP instead of SSE. mcp-kingdom now tries that automatically.');
   }
 
   if (errors.some((error) => /503/.test(error))) {

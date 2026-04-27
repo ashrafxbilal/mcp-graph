@@ -39,7 +39,7 @@ export async function loadMergedServerConfigs(options: LoadConfigOptions = {}): 
   const cwd = options.cwd ?? process.cwd();
   const homeDir = options.homeDir ?? process.env.HOME ?? process.env.USERPROFILE ?? cwd;
   const explicitConfigPaths = options.explicitConfigPaths ?? getExplicitConfigPathsFromEnv();
-  const includeCodex = options.includeCodex ?? getBooleanEnv('MCP_GRAPH_INCLUDE_CODEX', true);
+  const includeCodex = options.includeCodex ?? getBooleanEnv(['MCP_KINGDOM_INCLUDE_CODEX', 'MCP_GRAPH_INCLUDE_CODEX'], true);
   const excludeServers = new Set<string>([
     ...RESERVED_SERVER_NAMES,
     ...(options.excludeServers ?? getExcludeServersFromEnv()),
@@ -210,7 +210,7 @@ function normalizeOpenCodeServerConfig(name: string, rawConfig: unknown, candida
   const expanded = expandDeep(rawConfig as Record<string, unknown>);
   const config = expanded as Record<string, unknown>;
 
-  if (config.enabled === false && !getBooleanEnv('MCP_GRAPH_INCLUDE_DISABLED_OPENCODE', false)) {
+  if (config.enabled === false && !getBooleanEnv(['MCP_KINGDOM_INCLUDE_DISABLED_OPENCODE', 'MCP_GRAPH_INCLUDE_DISABLED_OPENCODE'], false)) {
     return null;
   }
 
@@ -331,7 +331,7 @@ function firstString(...values: unknown[]): string | undefined {
 }
 
 function getExplicitConfigPathsFromEnv(): string[] {
-  const fromEnv = process.env.MCP_GRAPH_CONFIG_PATH?.trim();
+  const fromEnv = getEnvValue(['MCP_KINGDOM_CONFIG_PATH', 'MCP_GRAPH_CONFIG_PATH'])?.trim();
   if (!fromEnv) {
     return [];
   }
@@ -339,7 +339,7 @@ function getExplicitConfigPathsFromEnv(): string[] {
 }
 
 function getExcludeServersFromEnv(): string[] {
-  const value = process.env.MCP_GRAPH_EXCLUDE_SERVERS?.trim();
+  const value = getEnvValue(['MCP_KINGDOM_EXCLUDE_SERVERS', 'MCP_GRAPH_EXCLUDE_SERVERS'])?.trim();
   if (!value) {
     return [];
   }
@@ -349,10 +349,20 @@ function getExcludeServersFromEnv(): string[] {
     .filter(Boolean);
 }
 
-function getBooleanEnv(name: string, fallback: boolean): boolean {
-  const value = process.env[name];
+function getBooleanEnv(names: string[], fallback: boolean): boolean {
+  const value = getEnvValue(names);
   if (!value) {
     return fallback;
   }
   return !['0', 'false', 'no', 'off'].includes(value.toLowerCase());
+}
+
+function getEnvValue(names: string[]): string | undefined {
+  for (const name of names) {
+    const value = process.env[name];
+    if (value) {
+      return value;
+    }
+  }
+  return undefined;
 }

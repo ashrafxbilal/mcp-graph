@@ -10,7 +10,7 @@ import { AuditLogger } from './logger.js';
 import { safeJsonStringify } from './utils.js';
 
 async function main(): Promise<void> {
-  const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), 'mcp-graph-'));
+  const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), 'mcp-kingdom-'));
   const tempHome = path.join(rootDir, 'home');
   const tempProject = path.join(rootDir, 'project');
   const backendConfigPath = path.join(rootDir, 'backends.json');
@@ -102,9 +102,9 @@ async function runDiscoveryAndInstallSmokeTest({
   const installResult = await installMcpGraph({
     cwd: tempProject,
     homeDir: tempHome,
-    backendPath: path.join(tempHome, '.mcp-graph', 'backends.json'),
-    policyPath: path.join(tempHome, '.mcp-graph', 'policy.json'),
-    auditLogPath: path.join(tempHome, '.mcp-graph', 'audit.log'),
+    backendPath: path.join(tempHome, '.mcp-kingdom', 'backends.json'),
+    policyPath: path.join(tempHome, '.mcp-kingdom', 'policy.json'),
+    auditLogPath: path.join(tempHome, '.mcp-kingdom', 'audit.log'),
     targets: ['claude', 'codex', 'opencode'],
   });
 
@@ -115,7 +115,7 @@ async function runDiscoveryAndInstallSmokeTest({
     throw new Error(`Expected policy summary to include five servers, got ${safeJsonStringify(installResult.policySummary, 2)}`);
   }
 
-  const backendSnapshot = JSON.parse(await fs.readFile(path.join(tempHome, '.mcp-graph', 'backends.json'), 'utf8')) as {
+  const backendSnapshot = JSON.parse(await fs.readFile(path.join(tempHome, '.mcp-kingdom', 'backends.json'), 'utf8')) as {
     mcpServers: Record<string, unknown>;
   };
   for (const expectedName of ['project-backend', 'claude-backend', 'settings-backend', 'codex-backend', 'opencode-backend']) {
@@ -123,11 +123,11 @@ async function runDiscoveryAndInstallSmokeTest({
       throw new Error(`Expected backend snapshot to include ${expectedName}`);
     }
   }
-  if ('mcp-graph' in backendSnapshot.mcpServers) {
-    throw new Error('Backend snapshot should not contain mcp-graph itself.');
+  if ('mcp-kingdom' in backendSnapshot.mcpServers) {
+    throw new Error('Backend snapshot should not contain mcp-kingdom itself.');
   }
 
-  const policy = JSON.parse(await fs.readFile(path.join(tempHome, '.mcp-graph', 'policy.json'), 'utf8')) as {
+  const policy = JSON.parse(await fs.readFile(path.join(tempHome, '.mcp-kingdom', 'policy.json'), 'utf8')) as {
     servers: Record<string, { mode: string; allowedTools: string[] }>;
   };
   if (policy.servers['project-backend']?.mode !== 'allow-listed') {
@@ -150,9 +150,9 @@ async function runDiscoveryAndInstallSmokeTest({
   };
   assertSingleFrontDoor(claudeSettings.mcpServers, '.claude/settings.json');
   for (const toolName of [
-    'mcp__mcp-graph__list_servers',
-    'mcp__mcp-graph__search_tools',
-    'mcp__mcp-graph__call_tool',
+    'mcp__mcp-kingdom__list_servers',
+    'mcp__mcp-kingdom__search_tools',
+    'mcp__mcp-kingdom__call_tool',
     'mcp__project-backend__catalog',
   ]) {
     if (!claudeSettings.permissions?.allow?.includes(toolName)) {
@@ -164,18 +164,18 @@ async function runDiscoveryAndInstallSmokeTest({
     mcp: Record<string, unknown>;
     permission?: Record<string, unknown>;
   };
-  if (!opencodeConfig.mcp || !('mcp-graph' in opencodeConfig.mcp) || Object.keys(opencodeConfig.mcp).length !== 1) {
-    throw new Error(`Expected OpenCode config to contain only mcp-graph, got ${safeJsonStringify(opencodeConfig, 2)}`);
+  if (!opencodeConfig.mcp || !('mcp-kingdom' in opencodeConfig.mcp) || Object.keys(opencodeConfig.mcp).length !== 1) {
+    throw new Error(`Expected OpenCode config to contain only mcp-kingdom, got ${safeJsonStringify(opencodeConfig, 2)}`);
   }
-  if (opencodeConfig.permission?.['mcp-graph_*'] !== 'allow') {
-    throw new Error(`Expected OpenCode permission to include mcp-graph_*, got ${safeJsonStringify(opencodeConfig.permission, 2)}`);
+  if (opencodeConfig.permission?.['mcp-kingdom_*'] !== 'allow') {
+    throw new Error(`Expected OpenCode permission to include mcp-kingdom_*, got ${safeJsonStringify(opencodeConfig.permission, 2)}`);
   }
 
   const codexConfig = await fs.readFile(path.join(tempHome, '.codex', 'config.toml'), 'utf8');
   if (
-    !codexConfig.includes('[mcp_servers.mcp-graph]')
+    !codexConfig.includes('[mcp_servers.mcp-kingdom]')
     || codexConfig.includes('[mcp_servers.codex-backend]')
-    || !codexConfig.includes('MCP_GRAPH_POLICY_PATH')
+    || !codexConfig.includes('MCP_KINGDOM_POLICY_PATH')
   ) {
     throw new Error(`Unexpected Codex config after install:\n${codexConfig}`);
   }
@@ -284,8 +284,8 @@ async function writeFixtureConfigs({
 
 function assertSingleFrontDoor(mcpServers: Record<string, unknown>, label: string): void {
   const names = Object.keys(mcpServers ?? {});
-  if (names.length !== 1 || names[0] !== 'mcp-graph') {
-    throw new Error(`Expected ${label} to contain only mcp-graph, got ${safeJsonStringify(mcpServers, 2)}`);
+  if (names.length !== 1 || names[0] !== 'mcp-kingdom') {
+    throw new Error(`Expected ${label} to contain only mcp-kingdom, got ${safeJsonStringify(mcpServers, 2)}`);
   }
 }
 

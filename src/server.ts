@@ -8,7 +8,7 @@ import { AuditLogger } from './logger.js';
 import { loadGraphPolicy } from './policy.js';
 import type { BatchCallToolStep, LoadedServerConfig } from './types.js';
 import { parseObjectArgument, safeJsonStringify } from './utils.js';
-import { MCP_GRAPH_VERSION } from './version.js';
+import { MCP_KINGDOM_VERSION } from './version.js';
 
 export interface CreateGraphServerOptions {
   cwd?: string;
@@ -21,19 +21,19 @@ export async function createGraphServer(options: CreateGraphServerOptions = {}):
   loadedConfig: LoadedServerConfig;
 }> {
   const loadedConfig = await loadMergedServerConfigs({ cwd: options.cwd, homeDir: options.homeDir });
-  const logger = new AuditLogger(process.env.MCP_GRAPH_AUDIT_LOG_PATH);
+  const logger = new AuditLogger(process.env.MCP_KINGDOM_AUDIT_LOG_PATH);
   const policy = await loadGraphPolicy();
   const registry = new GraphRegistry(loadedConfig, logger, policy);
 
   const server = new McpServer({
-    name: 'mcp-graph',
-    version: MCP_GRAPH_VERSION,
+    name: 'mcp-kingdom',
+    version: MCP_KINGDOM_VERSION,
   });
 
   server.registerTool(
     'list_servers',
     {
-      description: 'List backend MCP servers known to mcp-graph and show which config file each came from.',
+      description: 'List backend MCP servers known to mcp-kingdom and show which config file each came from.',
       inputSchema: z.object({
         includeMetadata: z.boolean().optional().default(false),
         includeDuplicates: z.boolean().optional().default(false),
@@ -153,7 +153,7 @@ export async function createGraphServer(options: CreateGraphServerOptions = {}):
   server.registerTool(
     'call_tool',
     {
-      description: 'Call a backend MCP tool by server name and tool name. mcp-graph connects lazily and returns a truncated preview by default to keep context smaller.',
+      description: 'Call a backend MCP tool by server name and tool name. mcp-kingdom connects lazily and returns a truncated preview by default to keep context smaller.',
       inputSchema: z.object({
         server: z.string(),
         tool: z.string(),

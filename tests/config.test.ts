@@ -12,7 +12,7 @@ afterEach(async () => {
 });
 
 async function createFixtureRoot(): Promise<{ rootDir: string; homeDir: string; projectDir: string }> {
-  const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), 'mcp-graph-config-'));
+  const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), 'mcp-kingdom-config-'));
   const homeDir = path.join(rootDir, 'home');
   const projectDir = path.join(rootDir, 'project');
   tempRoots.push(rootDir);

@@ -1,10 +1,16 @@
 #!/usr/bin/env node
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { DEFAULT_BACKEND_SNAPSHOT, DEFAULT_POLICY_PATH, DEFAULT_VERIFY_TIMEOUT_MS, GRAPH_TOOL_NAMES } from './constants.js';
+import {
+  DEFAULT_BACKEND_SNAPSHOT,
+  DEFAULT_POLICY_PATH,
+  DEFAULT_VERIFY_TIMEOUT_MS,
+  GRAPH_TOOL_NAMES,
+  LEGACY_BACKEND_SNAPSHOT,
+} from './constants.js';
 import { loadMergedServerConfigs, snapshotMergedConfig } from './config.js';
 import { GraphRegistry } from './clients.js';
-import { installMcpGraph, type InstallTarget } from './install.js';
+import { installMcpKingdom, type InstallTarget } from './install.js';
 import { AuditLogger } from './logger.js';
 import { authLogin } from './oauth.js';
 import { loadGraphPolicy } from './policy.js';
@@ -82,7 +88,7 @@ async function handleInspect(args: string[]): Promise<void> {
       totalBackendTools: inventory?.entries.reduce((sum, item) => sum + (item.toolCount ?? 0), 0) ?? 0,
       frontDoorToolCount: GRAPH_TOOL_NAMES.length,
       errors: inventory?.errors ?? [],
-      policyPath: process.env.MCP_GRAPH_POLICY_PATH ?? DEFAULT_POLICY_PATH,
+      policyPath: process.env.MCP_KINGDOM_POLICY_PATH ?? process.env.MCP_GRAPH_POLICY_PATH ?? DEFAULT_POLICY_PATH,
       policySummary: policy?.summary,
     } : {}),
   };
@@ -91,7 +97,7 @@ async function handleInspect(args: string[]): Promise<void> {
 }
 
 async function loadInspectConfig(args: string[]) {
-  const explicitBackend = readFlag(args, '--backend') ?? process.env.MCP_GRAPH_CONFIG_PATH;
+  const explicitBackend = readFlag(args, '--backend') ?? process.env.MCP_KINGDOM_CONFIG_PATH ?? process.env.MCP_GRAPH_CONFIG_PATH;
   if (explicitBackend) {
     return loadMergedServerConfigs({ explicitConfigPaths: [explicitBackend] });
   }
@@ -103,6 +109,9 @@ async function loadInspectConfig(args: string[]) {
 
   if (await fileExists(DEFAULT_BACKEND_SNAPSHOT)) {
     return loadMergedServerConfigs({ explicitConfigPaths: [DEFAULT_BACKEND_SNAPSHOT] });
+  }
+  if (await fileExists(LEGACY_BACKEND_SNAPSHOT)) {
+    return loadMergedServerConfigs({ explicitConfigPaths: [LEGACY_BACKEND_SNAPSHOT] });
   }
 
   return activeConfig;
@@ -116,7 +125,7 @@ async function handleInstall(args: string[]): Promise<void> {
   const dryRun = hasFlag(args, '--dry-run');
   const strictVerify = hasFlag(args, '--strict-verify');
   const targets = parseTargets(readFlag(args, '--targets'));
-  const result = await installMcpGraph({
+  const result = await installMcpKingdom({
     backendPath,
     auditLogPath,
     policyPath,
@@ -172,7 +181,7 @@ function parseTargets(value?: string): InstallTarget[] | undefined {
 }
 
 function printHelp(): void {
-  process.stdout.write(`mcp-graph\n\nCommands:\n  serve               Run the MCP server over stdio (default)\n  snapshot            Merge discovered MCP configs and write a backend snapshot file\n  inspect             Print the merged server inventory and duplicate resolution\n  install             Snapshot backend MCPs, generate policy, and rewire Claude/Codex/OpenCode to use only mcp-graph\n  auth login          Bootstrap OAuth tokens for an auth-gated backend server\n\nExamples:\n  node dist/cli.js snapshot --output ~/.mcp-graph/backends.json\n  node dist/cli.js inspect --tool-counts\n  node dist/cli.js inspect --backend ~/.mcp-graph/backends.json --tool-counts\n  node dist/cli.js install\n  node dist/cli.js install --targets claude,codex,opencode --strict-verify\n  node dist/cli.js install --policy ~/.mcp-graph/policy.json --verify-timeout-ms ${DEFAULT_VERIFY_TIMEOUT_MS}\n  node dist/cli.js auth login --server slack\n  MCP_GRAPH_CONFIG_PATH=~/.mcp-graph/backends.json node dist/cli.js\n`);
+  process.stdout.write(`mcp-kingdom\n\nCommands:\n  serve               Run the MCP server over stdio (default)\n  snapshot            Merge discovered MCP configs and write a backend snapshot file\n  inspect             Print the merged server inventory and duplicate resolution\n  install             Snapshot backend MCPs, generate policy, and rewire Claude/Codex/OpenCode to use only mcp-kingdom\n  auth login          Bootstrap OAuth tokens for an auth-gated backend server\n\nExamples:\n  node dist/cli.js snapshot --output ~/.mcp-kingdom/backends.json\n  node dist/cli.js inspect --tool-counts\n  node dist/cli.js inspect --backend ~/.mcp-kingdom/backends.json --tool-counts\n  node dist/cli.js install\n  node dist/cli.js install --targets claude,codex,opencode --strict-verify\n  node dist/cli.js install --policy ~/.mcp-kingdom/policy.json --verify-timeout-ms ${DEFAULT_VERIFY_TIMEOUT_MS}\n  node dist/cli.js auth login --server slack\n  MCP_KINGDOM_CONFIG_PATH=~/.mcp-kingdom/backends.json node dist/cli.js\n`);
 }
 
 main().catch((error) => {

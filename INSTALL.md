@@ -1,6 +1,6 @@
 # Install Guide
 
-This guide assumes you are using `mcp-graph` from a local clone.
+This guide assumes you are using `mcp-kingdom` from a local clone.
 
 ## Prerequisites
 
@@ -13,13 +13,13 @@ If `opencode` is not on your `PATH`, use its full binary path instead.
 ## Clone And Build
 
 ```sh
-git clone https://github.com/ashrafxbilal/mcp-graph.git
-cd mcp-graph
+git clone https://github.com/ashrafxbilal/mcp-kingdom.git
+cd mcp-kingdom
 npm install
 npm run build
 ```
 
-## Install `mcp-graph`
+## Install `mcp-kingdom`
 
 Install for all supported clients:
 
@@ -36,24 +36,24 @@ node dist/cli.js install --targets opencode
 The installer will:
 
 - discover your existing backend MCPs
-- write them to `~/.mcp-graph/backends.json`
-- write a backend tool policy to `~/.mcp-graph/policy.json`
+- write them to `~/.mcp-kingdom/backends.json`
+- write a backend tool policy to `~/.mcp-kingdom/policy.json`
 - verify `tools/list` for every backend and safe-probe read-only tools when possible
-- rewrite supported client configs so the front door is only `mcp-graph`
+- rewrite supported client configs so the front door is only `mcp-kingdom`
 - create backups before overwriting config files
 
 ## What OpenCode Should Look Like After Install
 
 After `node dist/cli.js install --targets opencode`:
 
-- your active OpenCode config should contain only one enabled MCP entry: `mcp-graph`
-- your previous OpenCode MCP servers should be preserved in `~/.mcp-graph/backends.json`
-- your backend tool policy should exist in `~/.mcp-graph/policy.json`
-- auth state for OAuth-gated backends will be stored in `~/.mcp-graph/auth`
-- OpenCode should launch `mcp-graph` from your local clone by absolute path
+- your active OpenCode config should contain only one enabled MCP entry: `mcp-kingdom`
+- your previous OpenCode MCP servers should be preserved in `~/.mcp-kingdom/backends.json`
+- your backend tool policy should exist in `~/.mcp-kingdom/policy.json`
+- auth state for OAuth-gated backends will be stored in `~/.mcp-kingdom/auth`
+- OpenCode should launch `mcp-kingdom` from your local clone by absolute path
 - OpenCode should not contain Claude-style permission keys like `mcp__server__tool`
 
-If you need to override OpenCode MCP permissions manually, use OpenCode tool wildcards like `mcp-graph_*`. Do not use Claude/Codex-style `mcp__...` permission entries.
+If you need to override OpenCode MCP permissions manually, use OpenCode tool wildcards like `mcp-kingdom_*`. Do not use Claude/Codex-style `mcp__...` permission entries.
 
 ## OpenCode-Only Verification
 
@@ -61,7 +61,7 @@ Use this sequence if you want to test only OpenCode first.
 
 ### 1. Record the baseline
 
-Before installing `mcp-graph`, capture:
+Before installing `mcp-kingdom`, capture:
 
 ```sh
 opencode mcp list
@@ -76,7 +76,7 @@ What to note:
 
 ### 2. Install only for OpenCode
 
-From the `mcp-graph` repo:
+From the `mcp-kingdom` repo:
 
 ```sh
 node dist/cli.js install --targets opencode
@@ -96,7 +96,7 @@ opencode mcp list
 
 Expected result:
 
-- `mcp-graph` should be the only active MCP server in OpenCode
+- `mcp-kingdom` should be the only active MCP server in OpenCode
 - your old MCP servers should no longer be active directly inside OpenCode
 
 This is the first structural proof that prompt context should shrink: OpenCode is no longer loading every backend MCP up front.
@@ -116,9 +116,9 @@ node dist/cli.js inspect --tool-counts
 What this proves:
 
 - `inspect` proves the backend snapshot still contains your original MCP definitions
-- after `install`, `inspect` automatically uses `~/.mcp-graph/backends.json` when your client configs have already been rewired to only `mcp-graph`
-- `inspect --tool-counts` forces `mcp-graph` to fetch `tools/list` from each backend and count the tools
-- `~/.mcp-graph/policy.json` records which servers were allow-listed, which fell back to passthrough, and whether a safe read-only probe succeeded
+- after `install`, `inspect` automatically uses `~/.mcp-kingdom/backends.json` when your client configs have already been rewired to only `mcp-kingdom`
+- `inspect --tool-counts` forces `mcp-kingdom` to fetch `tools/list` from each backend and count the tools
+- `~/.mcp-kingdom/policy.json` records which servers were allow-listed, which fell back to passthrough, and whether a safe read-only probe succeeded
 - the inspect output also shows the selected connection strategy and remediation for transport/auth failures
 
 For Slack or other OAuth-gated MCPs:
@@ -136,7 +136,7 @@ That second command is the fastest broad verification that backend MCP discovery
 To verify real routing inside OpenCode:
 
 1. Start a fresh OpenCode session.
-2. Ask OpenCode to use `mcp-graph` explicitly.
+2. Ask OpenCode to use `mcp-kingdom` explicitly.
 3. For each backend you care about, repeat this sequence:
 
 ```text
@@ -172,12 +172,12 @@ There are two different proofs:
 
 ### Structural proof
 
-This is the most reliable proof that `mcp-graph` is doing the right thing.
+This is the most reliable proof that `mcp-kingdom` is doing the right thing.
 
 After install:
 
-- `opencode mcp list` should show only one active MCP: `mcp-graph`
-- `MCP_GRAPH_CONFIG_PATH="$HOME/.mcp-graph/backends.json" node dist/cli.js inspect --tool-counts` should show:
+- `opencode mcp list` should show only one active MCP: `mcp-kingdom`
+- `MCP_KINGDOM_CONFIG_PATH="$HOME/.mcp-kingdom/backends.json" node dist/cli.js inspect --tool-counts` should show:
   - a small `frontDoorToolCount` of `6`
   - a much larger `totalBackendTools`
 
@@ -212,13 +212,13 @@ opencode stats --days 1 --project "$PWD"
 
 Why this works:
 
-- before `mcp-graph`, OpenCode has to load every active MCP tool surface into the session context
-- after `mcp-graph`, OpenCode loads only six front-door tools and the backends stay behind the gateway until needed
+- before `mcp-kingdom`, OpenCode has to load every active MCP tool surface into the session context
+- after `mcp-kingdom`, OpenCode loads only six front-door tools and the backends stay behind the gateway until needed
 
 Important nuance:
 
 - the biggest savings should show up at session start and on prompts that do not need most MCPs
-- if a prompt eventually drills into several backend tools, total end-to-end token savings may shrink because `mcp-graph` still has to reveal the relevant tools on demand
+- if a prompt eventually drills into several backend tools, total end-to-end token savings may shrink because `mcp-kingdom` still has to reveal the relevant tools on demand
 
 If your OpenCode build exposes per-session usage in exported session JSON, you can also compare individual sessions:
 
@@ -241,5 +241,5 @@ If you want to revert OpenCode only:
 You can also remove the generated backend snapshot if you no longer need it:
 
 ```sh
-rm -f "$HOME/.mcp-graph/backends.json"
+rm -f "$HOME/.mcp-kingdom/backends.json"
 ```

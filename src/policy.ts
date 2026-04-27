@@ -1,6 +1,6 @@
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { GraphRegistry } from './clients.js';
-import { DEFAULT_POLICY_PATH, DEFAULT_VERIFY_TIMEOUT_MS } from './constants.js';
+import { DEFAULT_POLICY_PATH, DEFAULT_VERIFY_TIMEOUT_MS, LEGACY_POLICY_PATH } from './constants.js';
 import { AuditLogger } from './logger.js';
 import type {
   ExistingToolPermissionIndex,
@@ -120,17 +120,24 @@ function toPolicyResolution(resolution?: ReturnType<GraphRegistry['getServerConn
 }
 
 export async function loadGraphPolicy(
-  policyPath = process.env.MCP_GRAPH_POLICY_PATH ?? DEFAULT_POLICY_PATH,
+  policyPath = process.env.MCP_KINGDOM_POLICY_PATH ?? process.env.MCP_GRAPH_POLICY_PATH ?? DEFAULT_POLICY_PATH,
 ): Promise<GraphPolicyDocument | undefined> {
-  if (!(await fileExists(policyPath))) {
-    return undefined;
-  }
+  const candidates = policyPath === DEFAULT_POLICY_PATH
+    ? [DEFAULT_POLICY_PATH, LEGACY_POLICY_PATH]
+    : [policyPath];
 
-  const value = await readJsonFile<GraphPolicyDocument>(policyPath);
-  if (!value || value.version !== 1 || !value.servers || typeof value.servers !== 'object') {
-    return undefined;
+  for (const candidate of candidates) {
+    if (!(await fileExists(candidate))) {
+      continue;
+    }
+
+    const value = await readJsonFile<GraphPolicyDocument>(candidate);
+    if (!value || value.version !== 1 || !value.servers || typeof value.servers !== 'object') {
+      continue;
+    }
+    return value;
   }
-  return value;
+  return undefined;
 }
 
 async function probeSafeTool({

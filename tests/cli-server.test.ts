@@ -21,7 +21,7 @@ afterEach(async () => {
   }
 });
 
-describe('mcp-graph CLI', () => {
+describe('mcp-kingdom CLI', () => {
   it('serves the top-level progressive-disclosure MCP surface over stdio', async () => {
     const fixture = await createMockBackendConfig();
     cleanups.push(fixture.cleanup);
@@ -32,11 +32,11 @@ describe('mcp-graph CLI', () => {
       args: [path.join(repoRoot, 'src', 'cli.ts')],
       env: {
         ...(process.env as Record<string, string | undefined>),
-        MCP_GRAPH_CONFIG_PATH: fixture.backendConfigPath,
+        MCP_KINGDOM_CONFIG_PATH: fixture.backendConfigPath,
       } as Record<string, string>,
       stderr: 'pipe',
     });
-    const client = new Client({ name: 'mcp-graph-test-client', version: '0.0.0' }, { capabilities: {} });
+    const client = new Client({ name: 'mcp-kingdom-test-client', version: '0.0.0' }, { capabilities: {} });
 
     try {
       await client.connect(transport);
@@ -90,7 +90,7 @@ describe('mcp-graph CLI', () => {
       cwd: repoRoot,
       env: {
         ...(process.env as Record<string, string | undefined>),
-        MCP_GRAPH_CONFIG_PATH: fixture.backendConfigPath,
+        MCP_KINGDOM_CONFIG_PATH: fixture.backendConfigPath,
       } as NodeJS.ProcessEnv,
     });
 
@@ -108,23 +108,23 @@ describe('mcp-graph CLI', () => {
     const fixture = await createMockBackendConfig();
     cleanups.push(fixture.cleanup);
 
-    const tempHome = await fs.mkdtemp(path.join(os.tmpdir(), 'mcp-graph-cli-home-'));
+    const tempHome = await fs.mkdtemp(path.join(os.tmpdir(), 'mcp-kingdom-cli-home-'));
     cleanups.push(async () => fs.rm(tempHome, { recursive: true, force: true }));
     await fs.mkdir(path.join(tempHome, '.config', 'opencode'), { recursive: true });
     await fs.writeFile(
       path.join(tempHome, '.config', 'opencode', 'opencode.json'),
       JSON.stringify({
         mcp: {
-          'mcp-graph': {
+          'mcp-kingdom': {
             type: 'local',
-            command: [process.execPath, '/tmp/mcp-graph-cli.js'],
+            command: [process.execPath, '/tmp/mcp-kingdom-cli.js'],
           },
         },
       }, null, 2),
       'utf8',
     );
-    await fs.mkdir(path.join(tempHome, '.mcp-graph'), { recursive: true });
-    await fs.copyFile(fixture.backendConfigPath, path.join(tempHome, '.mcp-graph', 'backends.json'));
+    await fs.mkdir(path.join(tempHome, '.mcp-kingdom'), { recursive: true });
+    await fs.copyFile(fixture.backendConfigPath, path.join(tempHome, '.mcp-kingdom', 'backends.json'));
 
     const repoRoot = getRepoRoot();
     const command = path.join(repoRoot, 'node_modules', '.bin', 'tsx');
@@ -144,7 +144,7 @@ describe('mcp-graph CLI', () => {
     };
     expect(parsed.serverCount).toBe(1);
     expect(parsed.totalBackendTools).toBe(2);
-    expect(parsed.loadedFiles).toEqual([path.join(tempHome, '.mcp-graph', 'backends.json')]);
+    expect(parsed.loadedFiles).toEqual([path.join(tempHome, '.mcp-kingdom', 'backends.json')]);
   });
 
   it('returns partial search results and backend errors instead of failing the whole request', async () => {
@@ -160,11 +160,11 @@ describe('mcp-graph CLI', () => {
       args: [path.join(repoRoot, 'src', 'cli.ts')],
       env: {
         ...(process.env as Record<string, string | undefined>),
-        MCP_GRAPH_CONFIG_PATH: fixture.backendConfigPath,
+        MCP_KINGDOM_CONFIG_PATH: fixture.backendConfigPath,
       } as Record<string, string>,
       stderr: 'pipe',
     });
-    const client = new Client({ name: 'mcp-graph-test-client', version: '0.0.0' }, { capabilities: {} });
+    const client = new Client({ name: 'mcp-kingdom-test-client', version: '0.0.0' }, { capabilities: {} });
 
     try {
       await client.connect(transport);

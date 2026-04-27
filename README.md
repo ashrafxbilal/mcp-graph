@@ -1,8 +1,8 @@
-# mcp-graph
+# mcp-kingdom
 
-`mcp-graph` is a progressive-disclosure MCP gateway.
+`mcp-kingdom` is a progressive-disclosure MCP gateway.
 
-Instead of exposing every tool from every connected MCP server up front, `mcp-graph` exposes a small, stable tool surface and lazily indexes and proxies backend MCP servers only when the agent asks for them.
+Instead of exposing every tool from every connected MCP server up front, `mcp-kingdom` exposes a small, stable tool surface and lazily indexes and proxies backend MCP servers only when the agent asks for them.
 
 Supporting docs:
 
@@ -17,11 +17,11 @@ When agents connect to many MCP servers directly, they pay for it twice:
 - tool definitions get loaded up front
 - large intermediate tool results bounce through the agent loop
 
-`mcp-graph` keeps the top-level surface small and shifts backend tool discovery to runtime.
+`mcp-kingdom` keeps the top-level surface small and shifts backend tool discovery to runtime.
 
 ## What It Does
 
-`mcp-graph` exposes only these tools:
+`mcp-kingdom` exposes only these tools:
 
 - `list_servers`
 - `search_tools`
@@ -38,12 +38,12 @@ Behind the scenes it can:
 - cache backend tool lists in memory and on disk
 - generate a backend tool policy from discovered MCP schemas
 - adapt known transport mismatches like Coralogix-style `type: "sse"` configs that really speak streamable HTTP
-- preserve auth-gated backends behind `mcp-graph` and expose an OAuth bootstrap command for them
+- preserve auth-gated backends behind `mcp-kingdom` and expose an OAuth bootstrap command for them
 - safely probe read-only backend tools with zero required arguments during install
 - proxy stdio, streamable HTTP, and SSE MCP servers
 - shape large tool results with output modes, field projection, and array limiting
 - snapshot your existing MCP inventory into a dedicated backend config file
-- rewrite supported client configs so they load only `mcp-graph`
+- rewrite supported client configs so they load only `mcp-kingdom`
 - update client-native allowlists where the client actually supports them
 - back up rewritten client config files before changing them
 - expose inventory counts so you can verify how much tool surface moved behind the gateway
@@ -53,8 +53,8 @@ Behind the scenes it can:
 Recommended install model:
 
 1. Snapshot your current MCP inventory into a backend file.
-2. Reconfigure Claude Desktop / Claude Code / Codex / OpenCode to load only `mcp-graph`.
-3. Let `mcp-graph` discover, search, and call the backend MCPs on demand.
+2. Reconfigure Claude Desktop / Claude Code / Codex / OpenCode to load only `mcp-kingdom`.
+3. Let `mcp-kingdom` discover, search, and call the backend MCPs on demand.
 
 This gives you token savings without depending on any external code-executor repo.
 
@@ -63,8 +63,8 @@ This gives you token savings without depending on any external code-executor rep
 ### Clone and build
 
 ```sh
-git clone https://github.com/ashrafxbilal/mcp-graph.git
-cd mcp-graph
+git clone https://github.com/ashrafxbilal/mcp-kingdom.git
+cd mcp-kingdom
 npm install
 npm run build
 ```
@@ -84,8 +84,8 @@ For client-specific setup and verification, see [INSTALL.md](INSTALL.md).
 ### 1. Install from a local clone
 
 ```sh
-git clone https://github.com/ashrafxbilal/mcp-graph.git
-cd mcp-graph
+git clone https://github.com/ashrafxbilal/mcp-kingdom.git
+cd mcp-kingdom
 npm install
 npm run build
 node dist/cli.js install
@@ -100,10 +100,10 @@ node dist/cli.js install --targets claude,codex,opencode
 This install command:
 
 - discovers your existing MCPs from supported configs
-- writes `~/.mcp-graph/backends.json`
-- writes `~/.mcp-graph/policy.json`
+- writes `~/.mcp-kingdom/backends.json`
+- writes `~/.mcp-kingdom/policy.json`
 - performs backend verification with `tools/list` and safe read-only probes when available
-- backs up and rewrites supported client configs so they point only to this local `mcp-graph` checkout
+- backs up and rewrites supported client configs so they point only to this local `mcp-kingdom` checkout
 
 Supported install targets:
 
@@ -114,7 +114,7 @@ Supported install targets:
 ### 2. Snapshot your current MCP inventory manually
 
 ```sh
-node dist/cli.js snapshot --output ~/.mcp-graph/backends.json
+node dist/cli.js snapshot --output ~/.mcp-kingdom/backends.json
 ```
 
 This merges MCPs from the local machine into one backend file.
@@ -137,13 +137,13 @@ Example `~/.claude.json` entry:
 ```json
 {
   "mcpServers": {
-    "mcp-graph": {
+    "mcp-kingdom": {
       "command": "/absolute/path/to/node",
-      "args": ["/absolute/path/to/mcp-graph/dist/cli.js"],
+      "args": ["/absolute/path/to/mcp-kingdom/dist/cli.js"],
       "env": {
-        "MCP_GRAPH_CONFIG_PATH": "/Users/your-user/.mcp-graph/backends.json",
-        "MCP_GRAPH_AUDIT_LOG_PATH": "/Users/your-user/.mcp-graph/audit.log",
-        "MCP_GRAPH_POLICY_PATH": "/Users/your-user/.mcp-graph/policy.json"
+        "MCP_KINGDOM_CONFIG_PATH": "/Users/your-user/.mcp-kingdom/backends.json",
+        "MCP_KINGDOM_AUDIT_LOG_PATH": "/Users/your-user/.mcp-kingdom/audit.log",
+        "MCP_KINGDOM_POLICY_PATH": "/Users/your-user/.mcp-kingdom/policy.json"
       }
     }
   }
@@ -152,7 +152,7 @@ Example `~/.claude.json` entry:
 
 If you do this, remove the other MCP entries from the active top-level config. Otherwise the client still loads them directly and you lose the context-saving benefit.
 
-### 4. Ask the agent to use `mcp-graph`
+### 4. Ask the agent to use `mcp-kingdom`
 
 Typical flow:
 
@@ -162,46 +162,46 @@ Typical flow:
 
 ## Codex Integration
 
-Codex can also point at `mcp-graph` instead of loading every MCP directly.
+Codex can also point at `mcp-kingdom` instead of loading every MCP directly.
 
 Example `~/.codex/config.toml` snippet:
 
 ```toml
-[mcp_servers.mcp-graph]
+[mcp_servers.mcp-kingdom]
 command = "/absolute/path/to/node"
-args = ["/absolute/path/to/mcp-graph/dist/cli.js"]
-env = { MCP_GRAPH_CONFIG_PATH = "/Users/your-user/.mcp-graph/backends.json", MCP_GRAPH_AUDIT_LOG_PATH = "/Users/your-user/.mcp-graph/audit.log", MCP_GRAPH_POLICY_PATH = "/Users/your-user/.mcp-graph/policy.json" }
+args = ["/absolute/path/to/mcp-kingdom/dist/cli.js"]
+env = { MCP_KINGDOM_CONFIG_PATH = "/Users/your-user/.mcp-kingdom/backends.json", MCP_KINGDOM_AUDIT_LOG_PATH = "/Users/your-user/.mcp-kingdom/audit.log", MCP_KINGDOM_POLICY_PATH = "/Users/your-user/.mcp-kingdom/policy.json" }
 ```
 
-As with Claude, the token benefit comes only if `mcp-graph` is the primary active MCP surface.
+As with Claude, the token benefit comes only if `mcp-kingdom` is the primary active MCP surface.
 
-Codex does not currently expose a client-side per-MCP tool allowlist in `config.toml`. `mcp-graph` therefore uses the generated runtime policy file as the effective backend allowlist for Codex installs.
+Codex does not currently expose a client-side per-MCP tool allowlist in `config.toml`. `mcp-kingdom` therefore uses the generated runtime policy file as the effective backend allowlist for Codex installs.
 
 ## OpenCode Integration
 
-OpenCode can load `mcp-graph` as a local MCP server:
+OpenCode can load `mcp-kingdom` as a local MCP server:
 
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
-    "mcp-graph": {
+    "mcp-kingdom": {
       "type": "local",
-      "command": ["/absolute/path/to/node", "/absolute/path/to/mcp-graph/dist/cli.js"],
+      "command": ["/absolute/path/to/node", "/absolute/path/to/mcp-kingdom/dist/cli.js"],
       "enabled": true,
       "environment": {
-        "MCP_GRAPH_CONFIG_PATH": "/Users/your-user/.mcp-graph/backends.json",
-        "MCP_GRAPH_AUDIT_LOG_PATH": "/Users/your-user/.mcp-graph/audit.log",
-        "MCP_GRAPH_POLICY_PATH": "/Users/your-user/.mcp-graph/policy.json"
+        "MCP_KINGDOM_CONFIG_PATH": "/Users/your-user/.mcp-kingdom/backends.json",
+        "MCP_KINGDOM_AUDIT_LOG_PATH": "/Users/your-user/.mcp-kingdom/audit.log",
+        "MCP_KINGDOM_POLICY_PATH": "/Users/your-user/.mcp-kingdom/policy.json"
       }
     }
   }
 }
 ```
 
-As with Claude and Codex, the token benefit comes only if the other MCPs are moved behind the backend snapshot and `mcp-graph` is the only active front-door MCP.
+As with Claude and Codex, the token benefit comes only if the other MCPs are moved behind the backend snapshot and `mcp-kingdom` is the only active front-door MCP.
 
-Do not copy Claude-style permission keys like `mcp__server__tool` into OpenCode. OpenCode permissions use its own tool-name patterns, and MCP permissions should be expressed with OpenCode wildcards like `mcp-graph_*` only if you need to override the default behavior. By default, OpenCode already allows tools to run.
+Do not copy Claude-style permission keys like `mcp__server__tool` into OpenCode. OpenCode permissions use its own tool-name patterns, and MCP permissions should be expressed with OpenCode wildcards like `mcp-kingdom_*` only if you need to override the default behavior. By default, OpenCode already allows tools to run.
 
 ## CLI
 
@@ -214,7 +214,7 @@ node dist/cli.js
 ### Snapshot merged MCP config
 
 ```sh
-node dist/cli.js snapshot --output ~/.mcp-graph/backends.json
+node dist/cli.js snapshot --output ~/.mcp-kingdom/backends.json
 ```
 
 ### Inspect discovered servers and duplicate resolution
@@ -229,7 +229,7 @@ With backend tool counts:
 node dist/cli.js inspect --tool-counts
 ```
 
-After `install`, `inspect` automatically falls back to `~/.mcp-graph/backends.json` when your active client configs contain only `mcp-graph`.
+After `install`, `inspect` automatically falls back to `~/.mcp-kingdom/backends.json` when your active client configs contain only `mcp-kingdom`.
 
 `inspect --tool-counts` now includes per-server connection details such as the selected fallback strategy, effective transport, and remediation for auth-gated or unavailable servers.
 
@@ -258,19 +258,19 @@ Options:
 
 ## Environment Variables
 
-- `MCP_GRAPH_CONFIG_PATH`: explicit backend config file(s). If set, `mcp-graph` uses these paths instead of auto-discovery.
-- `MCP_GRAPH_INCLUDE_CODEX`: set to `false` to ignore `~/.codex/config.toml` during auto-discovery.
-- `MCP_GRAPH_INCLUDE_DISABLED_OPENCODE`: set to `true` to include OpenCode MCP entries with `enabled: false`.
-- `MCP_GRAPH_EXCLUDE_SERVERS`: comma-separated server names to ignore.
-- `MCP_GRAPH_AUDIT_LOG_PATH`: optional JSONL audit log path.
-- `MCP_GRAPH_POLICY_PATH`: explicit backend policy file. Defaults to `~/.mcp-graph/policy.json`.
-- `MCP_GRAPH_AUTH_DIR`: persisted OAuth state used by `auth login`. Defaults to `~/.mcp-graph/auth`.
-- `MCP_GRAPH_CACHE_DIR`: override the persistent tool-index cache directory.
-- `MCP_GRAPH_TOOL_CACHE_TTL_MS`: set the on-disk tool cache TTL in milliseconds.
+- `MCP_KINGDOM_CONFIG_PATH`: explicit backend config file(s). If set, `mcp-kingdom` uses these paths instead of auto-discovery.
+- `MCP_KINGDOM_INCLUDE_CODEX`: set to `false` to ignore `~/.codex/config.toml` during auto-discovery.
+- `MCP_KINGDOM_INCLUDE_DISABLED_OPENCODE`: set to `true` to include OpenCode MCP entries with `enabled: false`.
+- `MCP_KINGDOM_EXCLUDE_SERVERS`: comma-separated server names to ignore.
+- `MCP_KINGDOM_AUDIT_LOG_PATH`: optional JSONL audit log path.
+- `MCP_KINGDOM_POLICY_PATH`: explicit backend policy file. Defaults to `~/.mcp-kingdom/policy.json`.
+- `MCP_KINGDOM_AUTH_DIR`: persisted OAuth state used by `auth login`. Defaults to `~/.mcp-kingdom/auth`.
+- `MCP_KINGDOM_CACHE_DIR`: override the persistent tool-index cache directory.
+- `MCP_KINGDOM_TOOL_CACHE_TTL_MS`: set the on-disk tool cache TTL in milliseconds.
 
 ## Duplicate Resolution
 
-When the same server name appears in multiple configs, `mcp-graph` keeps one definition using this precedence:
+When the same server name appears in multiple configs, `mcp-kingdom` keeps one definition using this precedence:
 
 1. explicit backend config path
 2. project `.mcp.json`
@@ -295,7 +295,7 @@ Within the same source tier, stdio entries beat remote entries because they are 
 npm run smoke-test
 ```
 
-This spins up a local mock MCP backend, indexes it through `mcp-graph`, and verifies both tool discovery and proxy invocation.
+This spins up a local mock MCP backend, indexes it through `mcp-kingdom`, and verifies both tool discovery and proxy invocation.
 
 ## Test Matrix
 

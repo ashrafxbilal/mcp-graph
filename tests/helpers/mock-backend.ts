@@ -28,7 +28,7 @@ export async function createBackendConfig(mcpServers: Record<string, TestServerC
   backendConfigPath: string;
   cleanup: () => Promise<void>;
 }> {
-  const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), 'mcp-graph-test-'));
+  const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), 'mcp-kingdom-test-'));
   const backendConfigPath = path.join(rootDir, 'backends.json');
 
   await fs.writeFile(

@@ -3,10 +3,16 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   DEFAULT_AUDIT_LOG_PATH,
+  DEFAULT_AUTH_DIR,
   DEFAULT_BACKEND_SNAPSHOT,
+  DEFAULT_CACHE_DIR,
   DEFAULT_POLICY_PATH,
   DEFAULT_VERIFY_TIMEOUT_MS,
+  FRONT_DOOR_SERVER_NAMES,
   GRAPH_TOOL_NAMES,
+  LEGACY_AUTH_DIR,
+  LEGACY_BACKEND_SNAPSHOT,
+  LEGACY_CACHE_DIR,
 } from './constants.js';
 import { loadExplicitServerMap, loadMergedServerConfigs, snapshotMergedConfig } from './config.js';
 import { buildGraphPolicy, loadGraphPolicy } from './policy.js';
@@ -38,16 +44,14 @@ export interface InstallSummary {
   policySummary: GraphPolicyDocument['summary'];
 }
 
-const GRAPH_TOOL_ALLOWLIST = [
-  ...GRAPH_TOOL_NAMES.map((toolName) => `mcp__mcp-graph__${toolName}`),
-];
+const GRAPH_TOOL_ALLOWLIST = GRAPH_TOOL_NAMES.map((toolName) => `mcp__mcp-kingdom__${toolName}`);
 
 interface GraphLaunchSpec {
   command: string;
   args: string[];
 }
 
-export async function installMcpGraph(options: InstallOptions = {}): Promise<InstallSummary> {
+export async function installMcpKingdom(options: InstallOptions = {}): Promise<InstallSummary> {
   const cwd = options.cwd ?? process.cwd();
   const homeDir = options.homeDir ?? process.env.HOME ?? process.env.USERPROFILE ?? cwd;
   const backendPath = options.backendPath ?? DEFAULT_BACKEND_SNAPSHOT;
@@ -58,11 +62,15 @@ export async function installMcpGraph(options: InstallOptions = {}): Promise<Ins
   const changedFiles: string[] = [];
   const backups: string[] = [];
 
+  const migratedState = await migrateLegacyState({ homeDir, dryRun: options.dryRun });
+  changedFiles.push(...migratedState.changedFiles);
+  backups.push(...migratedState.backups);
+
   if (targets.length === 0) {
     throw new Error('No supported targets detected. Pass --targets claude,codex,opencode to create config files explicitly.');
   }
 
-  const mergedSnapshot = await snapshotMergedConfig({ cwd, homeDir, excludeServers: ['mcp-graph'] });
+  const mergedSnapshot = await snapshotMergedConfig({ cwd, homeDir, excludeServers: [...FRONT_DOOR_SERVER_NAMES] });
   const existingBackend = await readExistingBackendSnapshot(backendPath);
   const finalSnapshot = {
     mcpServers: {
@@ -70,7 +78,9 @@ export async function installMcpGraph(options: InstallOptions = {}): Promise<Ins
       ...mergedSnapshot.mcpServers,
     },
   };
-  delete finalSnapshot.mcpServers['mcp-graph'];
+  for (const serverName of FRONT_DOOR_SERVER_NAMES) {
+    delete finalSnapshot.mcpServers[serverName];
+  }
 
   const finalLoadedConfig = loadExplicitServerMap(finalSnapshot.mcpServers, backendPath);
   const existingPolicy = await loadGraphPolicy(policyPath);
@@ -150,6 +160,8 @@ export async function installMcpGraph(options: InstallOptions = {}): Promise<Ins
   };
 }
 
+export const installMcpGraph = installMcpKingdom;
+
 export async function detectInstallTargets(homeDir: string): Promise<InstallTarget[]> {
   const targets: InstallTarget[] = [];
 
@@ -176,11 +188,18 @@ export async function detectInstallTargets(homeDir: string): Promise<InstallTarg
 }
 
 async function readExistingBackendSnapshot(backendPath: string): Promise<Record<string, unknown>> {
-  if (!(await fileExists(backendPath))) {
-    return {};
+  const candidates = backendPath === DEFAULT_BACKEND_SNAPSHOT
+    ? [DEFAULT_BACKEND_SNAPSHOT, LEGACY_BACKEND_SNAPSHOT]
+    : [backendPath];
+
+  for (const candidate of candidates) {
+    if (!(await fileExists(candidate))) {
+      continue;
+    }
+    const existing = await readJsonFile<{ mcpServers?: Record<string, unknown> }>(candidate);
+    return existing.mcpServers ?? {};
   }
-  const existing = await readJsonFile<{ mcpServers?: Record<string, unknown> }>(backendPath);
-  return existing.mcpServers ?? {};
+  return {};
 }
 
 async function installClaude({
@@ -211,7 +230,7 @@ async function installClaude({
     const fileChanged = await writeClaudeLikeJson(filePath, (current) => ({
       ...current,
       mcpServers: {
-        'mcp-graph': entry,
+        'mcp-kingdom': entry,
       },
     }), dryRun);
     if (fileChanged.changed) {
@@ -227,7 +246,9 @@ async function installClaude({
     const permissions = current.permissions && typeof current.permissions === 'object' && !Array.isArray(current.permissions)
       ? { ...current.permissions as Record<string, unknown> }
       : {};
-    const allow = Array.isArray(permissions.allow) ? [...permissions.allow as unknown[]] : [];
+    const allow = Array.isArray(permissions.allow)
+      ? [...permissions.allow as unknown[]].filter((entry) => !isFrontDoorAllowlistEntry(entry))
+      : [];
     for (const toolName of getClaudeAllowlist(policy)) {
       if (!allow.includes(toolName)) {
         allow.push(toolName);
@@ -237,7 +258,7 @@ async function installClaude({
     return {
       ...current,
       mcpServers: {
-        'mcp-graph': entry,
+        'mcp-kingdom': entry,
       },
       permissions: {
         ...permissions,
@@ -279,14 +300,14 @@ async function installOpenCode({
       ...current,
       $schema: current.$schema ?? 'https://opencode.ai/config.json',
       mcp: {
-        'mcp-graph': {
+        'mcp-kingdom': {
           type: 'local',
         command: [graphLaunch.command, ...graphLaunch.args],
         enabled: true,
         environment: {
-          MCP_GRAPH_CONFIG_PATH: backendPath,
-          MCP_GRAPH_AUDIT_LOG_PATH: auditLogPath,
-          MCP_GRAPH_POLICY_PATH: policyPath,
+          MCP_KINGDOM_CONFIG_PATH: backendPath,
+          MCP_KINGDOM_AUDIT_LOG_PATH: auditLogPath,
+          MCP_KINGDOM_POLICY_PATH: policyPath,
         },
       },
     },
@@ -324,10 +345,10 @@ async function installCodex({
   const backup = existing ? `${filePath}.bak-${timestampId()}` : undefined;
   const stripped = stripTomlSections(existing, 'mcp_servers');
   const block = [
-    '[mcp_servers.mcp-graph]',
+    '[mcp_servers.mcp-kingdom]',
     `command = ${tomlString(graphLaunch.command)}`,
     `args = [${graphLaunch.args.map((arg) => tomlString(arg)).join(', ')}]`,
-    `env = { MCP_GRAPH_CONFIG_PATH = ${tomlString(backendPath)}, MCP_GRAPH_AUDIT_LOG_PATH = ${tomlString(auditLogPath)}, MCP_GRAPH_POLICY_PATH = ${tomlString(policyPath)} }`,
+    `env = { MCP_KINGDOM_CONFIG_PATH = ${tomlString(backendPath)}, MCP_KINGDOM_AUDIT_LOG_PATH = ${tomlString(auditLogPath)}, MCP_KINGDOM_POLICY_PATH = ${tomlString(policyPath)} }`,
     '',
   ].join('\n');
   const nextText = `${stripped.trimEnd()}\n\n${block}`.trimStart();
@@ -424,9 +445,9 @@ function createClaudeGraphEntry(
     command: graphLaunch.command,
     args: graphLaunch.args,
     env: {
-      MCP_GRAPH_CONFIG_PATH: backendPath,
-      MCP_GRAPH_AUDIT_LOG_PATH: auditLogPath,
-      MCP_GRAPH_POLICY_PATH: policyPath,
+      MCP_KINGDOM_CONFIG_PATH: backendPath,
+      MCP_KINGDOM_AUDIT_LOG_PATH: auditLogPath,
+      MCP_KINGDOM_POLICY_PATH: policyPath,
     },
   };
 }
@@ -442,7 +463,8 @@ function sanitizeOpenCodePermission(permission: unknown): unknown {
 
   return Object.fromEntries(
     Object.entries(permission as Record<string, unknown>)
-      .filter(([key]) => !key.startsWith('mcp__')),
+      .filter(([key]) => !key.startsWith('mcp__'))
+      .filter(([key]) => !isFrontDoorOpenCodePattern(key)),
   );
 }
 
@@ -482,7 +504,7 @@ function mergeOpenCodePermission(permission: unknown, policy: GraphPolicyDocumen
 function getOpenCodeAllowPatterns(policy: GraphPolicyDocument): string[] {
   const patterns = new Set<string>();
 
-  for (const pattern of getOpenCodeServerPatterns('mcp-graph')) {
+  for (const pattern of getOpenCodeServerPatterns('mcp-kingdom')) {
     patterns.add(pattern);
   }
 
@@ -538,7 +560,7 @@ async function readExistingToolPermissionIndex(homeDir: string): Promise<Existin
       continue;
     }
     const [, server, tool] = match;
-    if (server === 'mcp-graph') {
+    if (FRONT_DOOR_SERVER_NAMES.includes(server as typeof FRONT_DOOR_SERVER_NAMES[number])) {
       continue;
     }
     index[server] ??= [];
@@ -590,5 +612,69 @@ async function resolveGraphLaunchSpec(): Promise<GraphLaunchSpec> {
     };
   }
 
-  throw new Error('Unable to locate a runnable mcp-graph entrypoint. Run `npm install && npm run build` before `install`.');
+  throw new Error('Unable to locate a runnable mcp-kingdom entrypoint. Run `npm install && npm run build` before `install`.');
+}
+
+async function migrateLegacyState({
+  homeDir,
+  dryRun,
+}: {
+  homeDir: string;
+  dryRun?: boolean;
+}): Promise<{ changedFiles: string[]; backups: string[] }> {
+  const actualHomeDir = process.env.HOME ?? process.env.USERPROFILE ?? homeDir;
+  if (homeDir !== actualHomeDir) {
+    return { changedFiles: [], backups: [] };
+  }
+
+  const changedFiles: string[] = [];
+  const backups: string[] = [];
+  const migrations = [
+    { from: LEGACY_AUTH_DIR, to: DEFAULT_AUTH_DIR },
+    { from: LEGACY_CACHE_DIR, to: DEFAULT_CACHE_DIR },
+  ];
+
+  for (const migration of migrations) {
+    if (await fileExists(migration.to) || !(await fileExists(migration.from))) {
+      continue;
+    }
+    changedFiles.push(migration.to);
+    backups.push(migration.from);
+    if (dryRun) {
+      continue;
+    }
+    await copyPath(migration.from, migration.to);
+  }
+
+  return { changedFiles, backups };
+}
+
+function isFrontDoorAllowlistEntry(entry: unknown): boolean {
+  if (typeof entry !== 'string') {
+    return false;
+  }
+  return FRONT_DOOR_SERVER_NAMES.some((serverName) => entry.startsWith(`mcp__${serverName}__`));
+}
+
+function isFrontDoorOpenCodePattern(entry: string): boolean {
+  return [
+    'mcp-kingdom_*',
+    'mcp_kingdom_*',
+    'mcp-graph_*',
+    'mcp_graph_*',
+  ].includes(entry);
+}
+
+async function copyPath(from: string, to: string): Promise<void> {
+  const stats = await fs.stat(from);
+  if (stats.isDirectory()) {
+    await ensureDir(to);
+    for (const entry of await fs.readdir(from, { withFileTypes: true })) {
+      await copyPath(path.join(from, entry.name), path.join(to, entry.name));
+    }
+    return;
+  }
+
+  await ensureDir(path.dirname(to));
+  await fs.copyFile(from, to);
 }

@@ -32,8 +32,8 @@ export class ToolIndexCache {
   private readonly logger?: AuditLogger;
 
   constructor(options: ToolIndexCacheOptions = {}) {
-    this.cacheDir = options.cacheDir ?? process.env.MCP_GRAPH_CACHE_DIR ?? DEFAULT_CACHE_DIR;
-    const ttlValue = Number.parseInt(process.env.MCP_GRAPH_TOOL_CACHE_TTL_MS ?? '', 10);
+    this.cacheDir = options.cacheDir ?? process.env.MCP_KINGDOM_CACHE_DIR ?? process.env.MCP_GRAPH_CACHE_DIR ?? DEFAULT_CACHE_DIR;
+    const ttlValue = Number.parseInt(process.env.MCP_KINGDOM_TOOL_CACHE_TTL_MS ?? process.env.MCP_GRAPH_TOOL_CACHE_TTL_MS ?? '', 10);
     this.ttlMs = Number.isFinite(ttlValue) ? ttlValue : (options.ttlMs ?? DEFAULT_TOOL_CACHE_TTL_MS);
     this.logger = options.logger;
   }

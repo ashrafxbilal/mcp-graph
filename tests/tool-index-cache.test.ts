@@ -14,7 +14,7 @@ afterEach(async () => {
 });
 
 async function createCacheDir(): Promise<string> {
-  const dirPath = await fs.mkdtemp(path.join(os.tmpdir(), 'mcp-graph-cache-'));
+  const dirPath = await fs.mkdtemp(path.join(os.tmpdir(), 'mcp-kingdom-cache-'));
   tempDirs.push(dirPath);
   return dirPath;
 }

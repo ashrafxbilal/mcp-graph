@@ -22,7 +22,7 @@ import type {
   ToolMatch,
 } from './types.js';
 import { scoreText } from './utils.js';
-import { MCP_GRAPH_VERSION } from './version.js';
+import { MCP_KINGDOM_VERSION } from './version.js';
 
 interface ToolCacheRecord {
   tools: Tool[];
@@ -120,7 +120,7 @@ class BackendSession {
 
     for (const plan of buildConnectionPlans(this.config)) {
       const client = new Client(
-        { name: 'mcp-graph-backend-client', version: MCP_GRAPH_VERSION },
+        { name: 'mcp-kingdom-backend-client', version: MCP_KINGDOM_VERSION },
         { capabilities: {} },
       );
       const transport = this.createTransport(plan, authProvider);
@@ -598,7 +598,7 @@ export class GraphRegistry {
     }
 
     throw new Error(
-      `Tool ${toolName} is not permitted on server ${serverName} by the current mcp-graph policy. Re-run install or refresh the policy to approve newly discovered tools.`,
+      `Tool ${toolName} is not permitted on server ${serverName} by the current mcp-kingdom policy. Re-run install or refresh the policy to approve newly discovered tools.`,
     );
   }
 }
