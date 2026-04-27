@@ -10,7 +10,7 @@ import {
 } from './constants.js';
 import { loadMergedServerConfigs } from './config.js';
 import { detectInstallTargets, installMcpKingdom, type InstallOptions, type InstallTarget } from './install.js';
-import type { DuplicateServerRecord, GraphPolicySummary } from './types.js';
+import type { AliasDeduplicationRecord, DuplicateServerRecord, GraphPolicySummary } from './types.js';
 import { fileExists } from './utils.js';
 
 export interface DoctorFilePlan {
@@ -44,6 +44,7 @@ export interface DoctorReport {
   }>;
   backendServerCount: number;
   policySummary: GraphPolicySummary;
+  dedupedAliases: AliasDeduplicationRecord[];
   filePlan: DoctorFilePlan[];
   legacyMigrations: DoctorLegacyMigration[];
   notes: string[];
@@ -108,6 +109,7 @@ export async function doctorMcpKingdom(options: InstallOptions = {}): Promise<Do
     duplicates,
     backendServerCount: installPreview.backendServerCount,
     policySummary: installPreview.policySummary,
+    dedupedAliases: installPreview.dedupedAliases,
     filePlan: filePlan.sort((left, right) => left.path.localeCompare(right.path)),
     legacyMigrations,
     notes,

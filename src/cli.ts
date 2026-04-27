@@ -86,6 +86,11 @@ async function handleInspect(args: string[]): Promise<void> {
       transport: entry.transport,
       sourceKind: entry.sourceKind,
       sourceFile: entry.sourceFile,
+      ...(Array.isArray(entry.metadata?.aliases) && entry.metadata.aliases.length > 0
+        ? {
+          aliases: entry.metadata.aliases.filter((value): value is string => typeof value === 'string'),
+        }
+        : {}),
       ...(includeToolCounts ? {
         toolCount: inventory?.entries.find((item) => item.server.name === entry.name)?.toolCount ?? 0,
         error: inventory?.entries.find((item) => item.server.name === entry.name)?.error,

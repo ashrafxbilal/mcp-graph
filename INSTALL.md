@@ -56,6 +56,7 @@ npm run setup:codex
 The installer will:
 
 - discover your existing backend MCPs
+- collapse alias-only duplicates after successful verification when they resolve to the same backend and tool surface
 - write them to `~/.mcp-kingdom/backends.json`
 - write a backend tool policy to `~/.mcp-kingdom/policy.json`
 - verify `tools/list` for every backend and safe-probe read-only tools when possible

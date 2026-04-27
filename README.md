@@ -37,6 +37,7 @@ Behind the scenes it can:
 - connect lazily on first use
 - cache backend tool lists in memory and on disk
 - generate a backend tool policy from discovered MCP schemas
+- collapse verified alias-only duplicate backends into one canonical server while preserving dropped names as aliases
 - adapt known transport mismatches like Coralogix-style `type: "sse"` configs that really speak streamable HTTP
 - preserve auth-gated backends behind `mcp-kingdom` and expose an OAuth bootstrap command for them
 - safely probe read-only backend tools with zero required arguments during install

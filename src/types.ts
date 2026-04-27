@@ -41,6 +41,13 @@ export interface LoadedServerConfig {
   loadedFiles: string[];
 }
 
+export interface AliasDeduplicationRecord {
+  canonicalName: string;
+  aliases: string[];
+  normalizedAlias: string;
+  toolCount: number;
+}
+
 export interface ExistingToolPermissionIndex {
   [serverName: string]: string[];
 }

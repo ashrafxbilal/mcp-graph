@@ -1,3 +1,4 @@
+export * from './alias-dedupe.js';
 export * from './clients.js';
 export * from './claude-stats.js';
 export * from './connection-resolver.js';

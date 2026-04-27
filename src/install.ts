@@ -14,9 +14,10 @@ import {
   LEGACY_BACKEND_SNAPSHOT,
   LEGACY_CACHE_DIR,
 } from './constants.js';
-import { loadExplicitServerMap, loadMergedServerConfigs, snapshotMergedConfig } from './config.js';
+import { deduplicateVerifiedServerAliases } from './alias-dedupe.js';
+import { loadExplicitServerMap, loadMergedServerConfigs, snapshotLoadedConfig, snapshotMergedConfig } from './config.js';
 import { buildGraphPolicy, loadGraphPolicy } from './policy.js';
-import type { ExistingToolPermissionIndex, GraphPolicyDocument } from './types.js';
+import type { AliasDeduplicationRecord, ExistingToolPermissionIndex, GraphPolicyDocument } from './types.js';
 import { ensureDir, fileExists, readJsonFile, safeJsonStringify, timestampId, writeJsonFile } from './utils.js';
 
 export type InstallTarget = 'claude' | 'codex' | 'opencode';
@@ -43,6 +44,7 @@ export interface InstallSummary {
   changedFiles: string[];
   backups: string[];
   policySummary: GraphPolicyDocument['summary'];
+  dedupedAliases: AliasDeduplicationRecord[];
 }
 
 const GRAPH_TOOL_ALLOWLIST = GRAPH_TOOL_NAMES.map((toolName) => `mcp__mcp-kingdom__${toolName}`);
@@ -87,7 +89,13 @@ export async function installMcpKingdom(options: InstallOptions = {}): Promise<I
     delete finalSnapshot.mcpServers[serverName];
   }
 
-  const finalLoadedConfig = loadExplicitServerMap(finalSnapshot.mcpServers, backendPath);
+  const preliminaryLoadedConfig = loadExplicitServerMap(finalSnapshot.mcpServers, backendPath);
+  const aliasDeduped = await deduplicateVerifiedServerAliases(preliminaryLoadedConfig, {
+    auditLogPath,
+    verifyTimeoutMs: options.verifyTimeoutMs ?? DEFAULT_VERIFY_TIMEOUT_MS,
+  });
+  const finalLoadedConfig = aliasDeduped.loadedConfig;
+  const dedupedSnapshot = snapshotLoadedConfig(finalLoadedConfig);
   const existingPolicy = await loadGraphPolicy(policyPath);
   const knownAllowedTools = await readExistingToolPermissionIndex(homeDir);
   const policy = await buildGraphPolicy(finalLoadedConfig, {
@@ -106,7 +114,7 @@ export async function installMcpKingdom(options: InstallOptions = {}): Promise<I
   changedFiles.push(backendPath, policyPath);
   if (!options.dryRun) {
     await ensureDir(path.dirname(backendPath));
-    await writeJsonFile(backendPath, finalSnapshot);
+    await writeJsonFile(backendPath, dedupedSnapshot);
     await writeJsonFile(policyPath, policy);
   }
 
@@ -157,11 +165,12 @@ export async function installMcpKingdom(options: InstallOptions = {}): Promise<I
     backendPath,
     auditLogPath,
     policyPath,
-    backendServerCount: Object.keys(finalSnapshot.mcpServers).length,
+    backendServerCount: Object.keys(dedupedSnapshot.mcpServers ?? {}).length,
     targets,
     changedFiles: [...new Set(changedFiles)],
     backups: [...new Set(backups)],
     policySummary: policy.summary,
+    dedupedAliases: aliasDeduped.dedupedAliases,
   };
 }
 

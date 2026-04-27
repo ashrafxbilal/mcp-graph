@@ -551,6 +551,12 @@ export class GraphRegistry {
     if (metadataName) {
       aliases.add(metadataName);
     }
+    const metadataAliases = Array.isArray(config.metadata?.aliases)
+      ? config.metadata.aliases.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      : [];
+    for (const alias of metadataAliases) {
+      aliases.add(alias);
+    }
     return [...aliases];
   }
 

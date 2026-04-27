@@ -59,6 +59,18 @@ export function createMockServerDefinition(overrides: TestServerConfig = {}): Te
   };
 }
 
+export function createVariantMockServerDefinition(overrides: TestServerConfig = {}): TestServerConfig {
+  const command = path.join(repoRoot, 'node_modules', '.bin', 'tsx');
+  const mockBackendPath = path.join(repoRoot, 'src', 'mock-backend-variant.ts');
+
+  return {
+    command,
+    args: [mockBackendPath],
+    cwd: repoRoot,
+    ...overrides,
+  };
+}
+
 export function createFailingServerDefinition(): TestServerConfig {
   return {
     command: process.execPath,
