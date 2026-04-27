@@ -16,6 +16,7 @@ If `opencode` is not on your `PATH`, use its full binary path instead.
 git clone https://github.com/ashrafxbilal/mcp-kingdom.git
 cd mcp-kingdom
 npm install
+npm run doctor
 npm run setup
 ```
 
@@ -30,6 +31,7 @@ npm run build
 Install for all supported clients:
 
 ```sh
+npm run doctor
 npm run setup
 ```
 
@@ -64,6 +66,19 @@ After install, you can run a broad verification pass with:
 
 ```sh
 npm run verify
+```
+
+`npm run doctor` is the safe preflight:
+
+- it does the same discovery and policy build as setup
+- it prints which files would be created or updated
+- it shows discovered backends, duplicate resolutions, and policy counts
+- it does not mutate client configs or snapshots
+
+You can also run it directly:
+
+```sh
+node dist/cli.js doctor --targets claude,codex,opencode
 ```
 
 ## What OpenCode Should Look Like After Install
@@ -255,6 +270,48 @@ Use that only as a session-level supplement. The structural proof above is still
 ## Rollback
 
 The installer creates backups before overwriting client configs.
+
+## Claude Usage Comparisons
+
+Compare today against the previous week:
+
+```sh
+npm run claude-stats
+```
+
+Compare a specific day against the previous 7 days:
+
+```sh
+npm run claude-stats -- --date 2026-04-27 --compare-days 7
+```
+
+Use a different timezone or log root:
+
+```sh
+node dist/cli.js claude-stats --date today --compare-days 7 --timezone Asia/Kolkata
+node dist/cli.js claude-stats --root ~/.claude/projects --date 2026-04-27
+```
+
+The stats command reads local Claude JSONL logs from `~/.claude/projects` by default and reports:
+
+- target-day totals
+- previous-window totals and daily averages
+- fresh-token and total-token comparisons
+- a per-day breakdown for the requested window
+
+## Adding New MCPs Later
+
+If you add or remove MCPs after the first install:
+
+```sh
+npm run doctor
+npm run setup
+npm run verify
+```
+
+`mcp-kingdom` will rediscover whatever MCPs exist on that machine, refresh `~/.mcp-kingdom/backends.json`, regenerate the policy, and keep the active clients pointed only at `mcp-kingdom`.
+
+This is why the repo works for other users with different MCP inventories too: discovery is local and dynamic, not hardcoded to your current machine.
 
 If you want to revert OpenCode only:
 

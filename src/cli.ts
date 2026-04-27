@@ -8,39 +8,47 @@ import {
   GRAPH_TOOL_NAMES,
   LEGACY_BACKEND_SNAPSHOT,
 } from './constants.js';
+import { buildClaudeStatsReport } from './claude-stats.js';
 import { loadMergedServerConfigs, snapshotMergedConfig } from './config.js';
 import { GraphRegistry } from './clients.js';
-import { installMcpKingdom, type InstallTarget } from './install.js';
+import { doctorMcpKingdom } from './doctor.js';
+import { installMcpKingdom, type InstallOptions, type InstallTarget } from './install.js';
 import { AuditLogger } from './logger.js';
 import { authLogin } from './oauth.js';
 import { loadGraphPolicy } from './policy.js';
 import { ensureDir, fileExists, safeJsonStringify } from './utils.js';
 import { runGraphServer } from './server.js';
 
-async function main(): Promise<void> {
+async function main(): Promise<boolean> {
   const [command = 'serve', ...args] = process.argv.slice(2);
 
   switch (command) {
     case 'serve':
       await runGraphServer();
-      return;
+      return true;
     case 'snapshot':
       await handleSnapshot(args);
-      return;
+      return false;
     case 'inspect':
       await handleInspect(args);
-      return;
+      return false;
     case 'install':
       await handleInstall(args);
-      return;
+      return false;
+    case 'doctor':
+      await handleDoctor(args);
+      return false;
+    case 'claude-stats':
+      await handleClaudeStats(args);
+      return false;
     case 'auth':
       await handleAuth(args);
-      return;
+      return false;
     case 'help':
     case '--help':
     case '-h':
       printHelp();
-      return;
+      return false;
     default:
       throw new Error(`Unknown command: ${command}`);
   }
@@ -118,26 +126,29 @@ async function loadInspectConfig(args: string[]) {
 }
 
 async function handleInstall(args: string[]): Promise<void> {
-  const backendPath = readFlag(args, '--backend');
-  const auditLogPath = readFlag(args, '--audit-log');
-  const policyPath = readFlag(args, '--policy');
-  const verifyTimeoutMs = readFlag(args, '--verify-timeout-ms');
-  const excludeServers = parseStringList(readFlag(args, '--exclude-servers'));
-  const dryRun = hasFlag(args, '--dry-run');
-  const strictVerify = hasFlag(args, '--strict-verify');
-  const targets = parseTargets(readFlag(args, '--targets'));
-  const result = await installMcpKingdom({
-    backendPath,
-    auditLogPath,
-    policyPath,
-    excludeServers,
-    dryRun,
-    strictVerify,
-    targets,
-    ...(verifyTimeoutMs ? { verifyTimeoutMs: Number.parseInt(verifyTimeoutMs, 10) } : {}),
-  });
+  const result = await installMcpKingdom(parseInstallOptions(args));
 
   process.stdout.write(`${safeJsonStringify(result, 2)}\n`);
+}
+
+async function handleDoctor(args: string[]): Promise<void> {
+  const options = parseInstallOptions(args);
+  const result = await doctorMcpKingdom(options);
+  process.stdout.write(`${safeJsonStringify(result, 2)}\n`);
+}
+
+async function handleClaudeStats(args: string[]): Promise<void> {
+  const rootDir = readFlag(args, '--root');
+  const timezone = readFlag(args, '--timezone');
+  const compareDays = readFlag(args, '--compare-days');
+  const report = await buildClaudeStatsReport({
+    rootDir,
+    timezone,
+    targetDate: readFlag(args, '--date'),
+    ...(compareDays ? { compareDays: Number.parseInt(compareDays, 10) } : {}),
+  });
+
+  process.stdout.write(`${safeJsonStringify(report, 2)}\n`);
 }
 
 async function handleAuth(args: string[]): Promise<void> {
@@ -172,6 +183,20 @@ function hasFlag(args: string[], flag: string): boolean {
   return args.includes(flag);
 }
 
+function parseInstallOptions(args: string[]): InstallOptions {
+  const verifyTimeoutMs = readFlag(args, '--verify-timeout-ms');
+  return {
+    backendPath: readFlag(args, '--backend'),
+    auditLogPath: readFlag(args, '--audit-log'),
+    policyPath: readFlag(args, '--policy'),
+    excludeServers: parseStringList(readFlag(args, '--exclude-servers')),
+    dryRun: hasFlag(args, '--dry-run'),
+    strictVerify: hasFlag(args, '--strict-verify'),
+    targets: parseTargets(readFlag(args, '--targets')),
+    ...(verifyTimeoutMs ? { verifyTimeoutMs: Number.parseInt(verifyTimeoutMs, 10) } : {}),
+  };
+}
+
 function parseTargets(value?: string): InstallTarget[] | undefined {
   if (!value) {
     return undefined;
@@ -193,10 +218,16 @@ function parseStringList(value?: string): string[] | undefined {
 }
 
 function printHelp(): void {
-  process.stdout.write(`mcp-kingdom\n\nCommands:\n  serve               Run the MCP server over stdio (default)\n  snapshot            Merge discovered MCP configs and write a backend snapshot file\n  inspect             Print the merged server inventory and duplicate resolution\n  install             Snapshot backend MCPs, generate policy, and rewire Claude/Codex/OpenCode to use only mcp-kingdom\n  auth login          Bootstrap OAuth tokens for an auth-gated backend server\n\nExamples:\n  node dist/cli.js snapshot --output ~/.mcp-kingdom/backends.json\n  node dist/cli.js inspect --tool-counts\n  node dist/cli.js inspect --backend ~/.mcp-kingdom/backends.json --tool-counts\n  node dist/cli.js install\n  node dist/cli.js install --targets claude,codex,opencode --strict-verify\n  node dist/cli.js install --exclude-servers blade-mcp,slack\n  node dist/cli.js install --policy ~/.mcp-kingdom/policy.json --verify-timeout-ms ${DEFAULT_VERIFY_TIMEOUT_MS}\n  node dist/cli.js auth login --server slack\n  MCP_KINGDOM_CONFIG_PATH=~/.mcp-kingdom/backends.json node dist/cli.js\n`);
+  process.stdout.write(`mcp-kingdom\n\nCommands:\n  serve               Run the MCP server over stdio (default)\n  snapshot            Merge discovered MCP configs and write a backend snapshot file\n  inspect             Print the merged server inventory and duplicate resolution\n  install             Snapshot backend MCPs, generate policy, and rewire Claude/Codex/OpenCode to use only mcp-kingdom\n  doctor              Dry-run setup and print what would change before install\n  claude-stats        Summarize Claude usage from ~/.claude/projects with day/week comparisons\n  auth login          Bootstrap OAuth tokens for an auth-gated backend server\n\nExamples:\n  node dist/cli.js snapshot --output ~/.mcp-kingdom/backends.json\n  node dist/cli.js inspect --tool-counts\n  node dist/cli.js inspect --backend ~/.mcp-kingdom/backends.json --tool-counts\n  node dist/cli.js doctor\n  node dist/cli.js install\n  node dist/cli.js install --targets claude,codex,opencode --strict-verify\n  node dist/cli.js install --exclude-servers blade-mcp,slack\n  node dist/cli.js install --policy ~/.mcp-kingdom/policy.json --verify-timeout-ms ${DEFAULT_VERIFY_TIMEOUT_MS}\n  node dist/cli.js claude-stats --date today --compare-days 7\n  node dist/cli.js claude-stats --root ~/.claude/projects --date 2026-04-27 --timezone Asia/Kolkata\n  node dist/cli.js auth login --server slack\n  MCP_KINGDOM_CONFIG_PATH=~/.mcp-kingdom/backends.json node dist/cli.js\n`);
 }
 
-main().catch((error) => {
-  process.stderr.write(`${error instanceof Error ? error.stack ?? error.message : String(error)}\n`);
-  process.exit(1);
-});
+main()
+  .then((keepAlive) => {
+    if (!keepAlive) {
+      process.exit(0);
+    }
+  })
+  .catch((error) => {
+    process.stderr.write(`${error instanceof Error ? error.stack ?? error.message : String(error)}\n`);
+    process.exit(1);
+  });

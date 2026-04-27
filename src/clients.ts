@@ -114,7 +114,7 @@ class BackendSession {
   }
 
   private async connectInternal(): Promise<Client> {
-    const authProvider = createOAuthProvider(this.config);
+    const authProvider = createOAuthProvider(this.config, { requireTokens: true });
     const attempts = [];
     let lastError: unknown;
 

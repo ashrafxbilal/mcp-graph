@@ -66,12 +66,14 @@ This gives you token savings without depending on any external code-executor rep
 git clone https://github.com/ashrafxbilal/mcp-kingdom.git
 cd mcp-kingdom
 npm install
+npm run doctor
 npm run setup
 ```
 
-That one command:
+That default setup flow:
 
 - builds the repo
+- previews the config changes before install
 - discovers supported local clients dynamically
 - snapshots existing MCPs into `~/.mcp-kingdom`
 - rewrites Claude / Codex / OpenCode to point at this local clone
@@ -100,12 +102,14 @@ For client-specific setup and verification, see [INSTALL.md](INSTALL.md).
 git clone https://github.com/ashrafxbilal/mcp-kingdom.git
 cd mcp-kingdom
 npm install
+npm run doctor
 npm run setup
 ```
 
 If you want to target specific clients:
 
 ```sh
+npm run doctor
 npm run setup:claude
 npm run setup:codex
 npm run setup:opencode
@@ -142,9 +146,17 @@ For most users, the intended flow is:
 git clone https://github.com/ashrafxbilal/mcp-kingdom.git
 cd mcp-kingdom
 npm install
+npm run doctor
 npm run setup
 npm run verify
 ```
+
+`npm run doctor` does a real dry-run of setup:
+
+- detects supported clients on the local machine
+- shows which config files would be created or updated
+- shows discovered backends, duplicate resolution, and policy counts
+- does not mutate any files
 
 ### 2. Snapshot your current MCP inventory manually
 
@@ -194,6 +206,72 @@ Typical flow:
 1. `search_tools` with a narrow query
 2. `get_tool_schema` only for the relevant match
 3. `call_tool` or `batch_call_tools`
+
+## Claude Usage Stats
+
+You can compare Claude usage directly from the repo without writing your own log parser.
+
+Default: compare today against the previous 7 days:
+
+```sh
+npm run claude-stats
+```
+
+Compare a specific day against the previous week:
+
+```sh
+npm run claude-stats -- --date 2026-04-27 --compare-days 7
+```
+
+Use a specific timezone or Claude projects root:
+
+```sh
+node dist/cli.js claude-stats --date today --compare-days 7 --timezone Asia/Kolkata
+node dist/cli.js claude-stats --root ~/.claude/projects --date 2026-04-27
+```
+
+The report includes:
+
+- target-day totals
+- previous-window totals and daily averages
+- fresh-token and total-token comparisons
+- per-day breakdown for the comparison window
+
+## Adding New MCPs
+
+If you add a new MCP later, you do not edit `mcp-kingdom` itself.
+
+Add the MCP to your normal client config first, then refresh the kingdom snapshot:
+
+```sh
+npm run doctor
+npm run setup
+npm run verify
+```
+
+What happens on the next setup run:
+
+- `mcp-kingdom` re-discovers MCPs from the local machine
+- it merges the newly discovered MCPs into `~/.mcp-kingdom/backends.json`
+- it regenerates `~/.mcp-kingdom/policy.json`
+- your active clients remain pointed only at `mcp-kingdom`
+
+## Different Users, Different MCPs
+
+The repo does not assume your MCP inventory matches anyone else's.
+
+Each user gets a machine-local snapshot based on whatever exists on their system at install time. Discovery is driven by:
+
+- `.mcp.json` in the current working directory
+- `opencode.json` in the current working directory
+- `~/.claude/settings.json`
+- `~/.claude/mcp.json`
+- `~/.claude.json`
+- `~/.config/opencode/opencode.json`
+- `~/.opencode.json`
+- `~/.codex/config.toml`
+
+That means two users can clone the same repo and end up with different `~/.mcp-kingdom/backends.json` snapshots, which is the correct behavior.
 
 ## Codex Integration
 
@@ -256,6 +334,18 @@ node dist/cli.js snapshot --output ~/.mcp-kingdom/backends.json
 
 ```sh
 node dist/cli.js inspect
+```
+
+### Preview setup changes
+
+```sh
+node dist/cli.js doctor
+```
+
+### Summarize Claude usage
+
+```sh
+node dist/cli.js claude-stats --date today --compare-days 7
 ```
 
 With backend tool counts:

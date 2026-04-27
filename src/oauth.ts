@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import path from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -98,10 +99,11 @@ export class FileOAuthClientProvider implements OAuthClientProvider {
   }
 
   redirectToAuthorization(authorizationUrl: URL): void {
-    process.stderr.write(`[mcp-kingdom] OAuth required for ${this.config.name}.\n${authorizationUrl.toString()}\n`);
-    if (this.interactive) {
-      void openBrowser(authorizationUrl.toString());
+    if (!this.interactive) {
+      return;
     }
+    process.stderr.write(`[mcp-kingdom] OAuth required for ${this.config.name}.\n${authorizationUrl.toString()}\n`);
+    void openBrowser(authorizationUrl.toString());
   }
 
   async saveCodeVerifier(codeVerifier: string): Promise<void> {
@@ -220,7 +222,10 @@ export class FileOAuthClientProvider implements OAuthClientProvider {
   }
 }
 
-export function createOAuthProvider(config: NormalizedServerConfig, options?: { interactive?: boolean; authDir?: string }): FileOAuthClientProvider | undefined {
+export function createOAuthProvider(
+  config: NormalizedServerConfig,
+  options?: { interactive?: boolean; authDir?: string; requireTokens?: boolean },
+): FileOAuthClientProvider | undefined {
   if (config.transport === 'stdio') {
     return undefined;
   }
@@ -231,6 +236,9 @@ export function createOAuthProvider(config: NormalizedServerConfig, options?: { 
 
   const authDir = options?.authDir ?? process.env.MCP_KINGDOM_AUTH_DIR ?? process.env.MCP_GRAPH_AUTH_DIR ?? DEFAULT_AUTH_DIR;
   const authFilePath = path.join(authDir, `${sanitizeServerName(config.name)}.json`);
+  if (options?.requireTokens && !hasSavedTokens(authFilePath)) {
+    return undefined;
+  }
   return new FileOAuthClientProvider(config, authFilePath, options?.interactive ?? false);
 }
 
@@ -355,6 +363,15 @@ function normalizeToken(value: string): string {
 
 function sanitizeServerName(value: string): string {
   return value.replace(/[^a-z0-9._-]+/gi, '_');
+}
+
+function hasSavedTokens(authFilePath: string): boolean {
+  try {
+    const parsed = JSON.parse(readFileSync(authFilePath, 'utf8')) as OAuthState;
+    return Boolean(parsed?.tokens);
+  } catch {
+    return false;
+  }
 }
 
 function getCallbackPort(config: NormalizedServerConfig): number {
