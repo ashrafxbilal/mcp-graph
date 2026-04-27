@@ -98,7 +98,13 @@ describe('doctorMcpKingdom', () => {
         path: path.join(homeDir, '.claude.json'),
         action: 'create',
       }),
+      expect.objectContaining({
+        path: path.join(homeDir, '.local', 'bin', 'claude-stats'),
+        action: 'create',
+      }),
     ]));
+    expect(report.shortcutBinDir).toBe(path.join(homeDir, '.local', 'bin'));
+    expect(report.shortcutCommands).toContain('claude-stats');
 
     await expect(fs.access(path.join(homeDir, '.mcp-kingdom', 'backends.json'))).rejects.toThrow();
   });

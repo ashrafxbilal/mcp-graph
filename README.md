@@ -48,6 +48,7 @@ Behind the scenes it can:
 - trim Claude MCP permissions down to the `mcp-kingdom` front door while preserving generic Bash/file/web permissions
 - scrub stale backend `mcp__server__tool` entries from `~/.claude/settings.local.json`
 - update client-native allowlists where the client actually supports them
+- install global helper commands like `claude-stats`, `opencode-stats`, and `mcp-kingdom-rediscover`
 - back up rewritten client config files before changing them
 - expose inventory counts so you can verify how much tool surface moved behind the gateway
 
@@ -76,10 +77,11 @@ npm run setup
 That default setup flow:
 
 - builds the repo
-- previews the config changes before install
+- launches an interactive install preview with an ASCII banner
 - discovers supported local clients dynamically
 - snapshots existing MCPs into `~/.mcp-kingdom`
 - rewrites Claude / Codex / OpenCode to point at this local clone
+- installs helper commands into a user bin directory so common checks can run from anywhere
 
 If you only want the build without rewriting local configs:
 
@@ -128,6 +130,7 @@ This install command:
 - backs up and rewrites supported client configs so they point only to this local `mcp-kingdom` checkout
 - trims Claude-side MCP permissions to `mcp-kingdom` only instead of mirroring every backend tool back into Claude
 - cleans stale backend MCP permission overrides from `~/.claude/settings.local.json`
+- installs helper commands like `claude-stats`, `opencode-stats`, `mcp-kingdom-doctor`, `mcp-kingdom-rediscover`, and `mcp-kingdom-inspect`
 
 Supported install targets:
 
@@ -161,7 +164,21 @@ npm run verify
 - detects supported clients on the local machine
 - shows which config files would be created or updated
 - shows discovered backends, duplicate resolution, and policy counts
+- shows helper commands that would be installed globally
 - does not mutate any files
+
+`npm run setup` is interactive by default when run in a terminal:
+
+- shows an install banner
+- explains what the installer will do
+- prints the file plan before changes are made
+- asks for confirmation before writing files
+
+If you want non-interactive behavior for CI or scripting:
+
+```sh
+node dist/cli.js install --yes
+```
 
 ### 2. Snapshot your current MCP inventory manually
 

@@ -120,6 +120,14 @@ describe('installMcpKingdom', () => {
     expect(result.backups.length).toBeGreaterThan(0);
     expect(result.policyPath).toBe(path.join(homeDir, '.mcp-kingdom', 'policy.json'));
     expect(result.policySummary.totalServers).toBe(4);
+    expect(result.shortcutBinDir).toBe(path.join(homeDir, '.local', 'bin'));
+    expect(result.shortcutCommands).toEqual([
+      'claude-stats',
+      'opencode-stats',
+      'mcp-kingdom-doctor',
+      'mcp-kingdom-rediscover',
+      'mcp-kingdom-inspect',
+    ]);
 
     const snapshot = JSON.parse(await fs.readFile(path.join(homeDir, '.mcp-kingdom', 'backends.json'), 'utf8')) as {
       mcpServers: Record<string, unknown>;
@@ -186,6 +194,13 @@ describe('installMcpKingdom', () => {
     expect(codex).not.toContain('[mcp_servers.old-codex]');
     expect(codex).not.toContain('command = "npx"');
     expect(codex).toContain('MCP_KINGDOM_POLICY_PATH');
+
+    const claudeStats = await fs.readFile(path.join(homeDir, '.local', 'bin', 'claude-stats'), 'utf8');
+    expect(claudeStats).toMatch(/(dist\/cli\.js|src\/cli\.ts)/);
+    expect(claudeStats).toContain('claude-stats');
+
+    const kingdomRediscover = await fs.readFile(path.join(homeDir, '.local', 'bin', 'mcp-kingdom-rediscover'), 'utf8');
+    expect(kingdomRediscover).toContain('rediscover');
   });
 
   it('supports dry-run without mutating files', async () => {
@@ -214,6 +229,7 @@ describe('installMcpKingdom', () => {
 
     expect(result.changedFiles).toContain(path.join(homeDir, '.claude', 'settings.json'));
     expect(result.changedFiles).toContain(path.join(homeDir, '.mcp-kingdom', 'policy.json'));
+    expect(result.changedFiles).toContain(path.join(homeDir, '.local', 'bin', 'claude-stats'));
     await expect(fs.access(path.join(homeDir, '.mcp-kingdom', 'backends.json'))).rejects.toThrow();
   });
 

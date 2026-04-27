@@ -45,6 +45,8 @@ export interface DoctorReport {
   backendServerCount: number;
   policySummary: GraphPolicySummary;
   dedupedAliases: AliasDeduplicationRecord[];
+  shortcutBinDir?: string;
+  shortcutCommands: string[];
   filePlan: DoctorFilePlan[];
   legacyMigrations: DoctorLegacyMigration[];
   notes: string[];
@@ -91,6 +93,7 @@ export async function doctorMcpKingdom(options: InstallOptions = {}): Promise<Do
     discoveredServerCount: discovered.servers.length,
     backendServerCount: installPreview.backendServerCount,
     legacyMigrations,
+    installNotes: installPreview.notes,
   });
 
   return {
@@ -110,6 +113,8 @@ export async function doctorMcpKingdom(options: InstallOptions = {}): Promise<Do
     backendServerCount: installPreview.backendServerCount,
     policySummary: installPreview.policySummary,
     dedupedAliases: installPreview.dedupedAliases,
+    shortcutBinDir: installPreview.shortcutBinDir,
+    shortcutCommands: installPreview.shortcutCommands,
     filePlan: filePlan.sort((left, right) => left.path.localeCompare(right.path)),
     legacyMigrations,
     notes,
@@ -151,11 +156,13 @@ function buildDoctorNotes({
   discoveredServerCount,
   backendServerCount,
   legacyMigrations,
+  installNotes,
 }: {
   targets: InstallTarget[];
   discoveredServerCount: number;
   backendServerCount: number;
   legacyMigrations: DoctorLegacyMigration[];
+  installNotes: string[];
 }): string[] {
   const notes: string[] = [];
 
@@ -168,6 +175,8 @@ function buildDoctorNotes({
   if (legacyMigrations.length > 0) {
     notes.push('Legacy ~/.mcp-graph state will be carried forward into ~/.mcp-kingdom.');
   }
+
+  notes.push(...installNotes);
 
   return notes;
 }

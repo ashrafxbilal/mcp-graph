@@ -28,10 +28,12 @@ export interface InstallOptions {
   backendPath?: string;
   auditLogPath?: string;
   policyPath?: string;
+  shortcutBinDir?: string;
   targets?: InstallTarget[];
   excludeServers?: string[];
   strictVerify?: boolean;
   verifyTimeoutMs?: number;
+  installShortcuts?: boolean;
   dryRun?: boolean;
 }
 
@@ -45,9 +47,20 @@ export interface InstallSummary {
   backups: string[];
   policySummary: GraphPolicyDocument['summary'];
   dedupedAliases: AliasDeduplicationRecord[];
+  shortcutBinDir?: string;
+  shortcutCommands: string[];
+  notes: string[];
 }
 
 const GRAPH_TOOL_ALLOWLIST = GRAPH_TOOL_NAMES.map((toolName) => `mcp__mcp-kingdom__${toolName}`);
+
+const SHORTCUT_DEFINITIONS = [
+  { name: 'claude-stats', command: 'claude-stats' },
+  { name: 'opencode-stats', command: 'opencode-stats' },
+  { name: 'mcp-kingdom-doctor', command: 'doctor' },
+  { name: 'mcp-kingdom-rediscover', command: 'rediscover' },
+  { name: 'mcp-kingdom-inspect', command: 'inspect' },
+] as const;
 
 interface GraphLaunchSpec {
   command: string;
@@ -64,6 +77,7 @@ export async function installMcpKingdom(options: InstallOptions = {}): Promise<I
   const targets = options.targets ?? await detectInstallTargets(homeDir);
   const changedFiles: string[] = [];
   const backups: string[] = [];
+  const notes: string[] = [];
   const excludedServers = new Set<string>([
     ...FRONT_DOOR_SERVER_NAMES,
     ...(options.excludeServers ?? getExcludedServersFromEnv()),
@@ -160,6 +174,22 @@ export async function installMcpKingdom(options: InstallOptions = {}): Promise<I
     }
   }
 
+  let shortcutBinDir: string | undefined;
+  let shortcutCommands: string[] = [];
+  if (options.installShortcuts !== false) {
+    const shortcutResult = await installCommandShortcuts({
+      homeDir,
+      graphLaunch,
+      shortcutBinDir: options.shortcutBinDir,
+      dryRun: options.dryRun,
+    });
+    changedFiles.push(...shortcutResult.changedFiles);
+    backups.push(...shortcutResult.backups);
+    shortcutBinDir = shortcutResult.shortcutBinDir;
+    shortcutCommands = shortcutResult.shortcutCommands;
+    notes.push(...shortcutResult.notes);
+  }
+
   return {
     backendPath,
     auditLogPath,
@@ -170,6 +200,9 @@ export async function installMcpKingdom(options: InstallOptions = {}): Promise<I
     backups: [...new Set(backups)],
     policySummary: policy.summary,
     dedupedAliases: aliasDeduped.dedupedAliases,
+    shortcutBinDir,
+    shortcutCommands,
+    notes: [...new Set(notes)],
   };
 }
 
@@ -705,6 +738,78 @@ async function resolveGraphLaunchSpec(): Promise<GraphLaunchSpec> {
   throw new Error('Unable to locate a runnable mcp-kingdom entrypoint. Run `npm install && npm run build` before `install`.');
 }
 
+async function installCommandShortcuts({
+  homeDir,
+  graphLaunch,
+  shortcutBinDir,
+  dryRun,
+}: {
+  homeDir: string;
+  graphLaunch: GraphLaunchSpec;
+  shortcutBinDir?: string;
+  dryRun?: boolean;
+}): Promise<{
+  changedFiles: string[];
+  backups: string[];
+  shortcutBinDir?: string;
+  shortcutCommands: string[];
+  notes: string[];
+}> {
+  if (process.platform === 'win32') {
+    return {
+      changedFiles: [],
+      backups: [],
+      shortcutCommands: [],
+      notes: ['Global helper shortcuts are currently skipped on Windows. Use `node dist/cli.js <command>` or npm scripts instead.'],
+    };
+  }
+
+  const resolved = resolveShortcutBinDir(homeDir, shortcutBinDir);
+  const notes: string[] = [];
+  if (!resolved.onPath) {
+    notes.push(`Helper shortcuts will be written to ${resolved.dir}. Add that directory to PATH if you want to run them from anywhere.`);
+  }
+
+  const changedFiles: string[] = [];
+  const backups: string[] = [];
+  const shortcutCommands: string[] = [];
+
+  for (const shortcut of SHORTCUT_DEFINITIONS) {
+    const filePath = path.join(resolved.dir, shortcut.name);
+    const content = buildShortcutScript(graphLaunch, shortcut.command);
+    const existing = await readFileOrEmpty(filePath);
+    if (existing === content) {
+      shortcutCommands.push(shortcut.name);
+      continue;
+    }
+
+    const backup = existing ? `${filePath}.bak-${timestampId()}` : undefined;
+    changedFiles.push(filePath);
+    shortcutCommands.push(shortcut.name);
+
+    if (!dryRun) {
+      await ensureDir(resolved.dir);
+      if (backup) {
+        await fs.copyFile(filePath, backup);
+      }
+      await fs.writeFile(filePath, content, 'utf8');
+      await fs.chmod(filePath, 0o755);
+    }
+
+    if (backup) {
+      backups.push(backup);
+    }
+  }
+
+  return {
+    changedFiles,
+    backups,
+    shortcutBinDir: resolved.dir,
+    shortcutCommands,
+    notes,
+  };
+}
+
 async function migrateLegacyState({
   homeDir,
   dryRun,
@@ -757,6 +862,60 @@ function looksLikeManagedOpenCodeMcpPattern(entry: string): boolean {
     return true;
   }
   return /^[A-Za-z0-9 _-]+_\*$/.test(entry);
+}
+
+function resolveShortcutBinDir(
+  homeDir: string,
+  explicitDir?: string,
+): { dir: string; onPath: boolean } {
+  if (explicitDir) {
+    return { dir: explicitDir, onPath: pathIncludesDirectory(explicitDir) };
+  }
+
+  const actualHomeDir = process.env.HOME ?? process.env.USERPROFILE ?? homeDir;
+  const pathEntries = homeDir === actualHomeDir
+    ? (process.env.PATH ?? '')
+      .split(path.delimiter)
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+    : [];
+
+  const preferredDirs = [
+    path.join(homeDir, '.local', 'bin'),
+    path.join(homeDir, 'bin'),
+  ];
+  const candidates = [
+    ...preferredDirs.filter((entry) => pathEntries.includes(entry)),
+    ...pathEntries.filter((entry) => entry.startsWith(homeDir)),
+    ...preferredDirs,
+    path.join(homeDir, '.mcp-kingdom', 'bin'),
+  ];
+
+  const dir = [...new Set(candidates)].find(Boolean) ?? path.join(homeDir, '.local', 'bin');
+  return { dir, onPath: pathEntries.includes(dir) };
+}
+
+function pathIncludesDirectory(dir: string): boolean {
+  return (process.env.PATH ?? '')
+    .split(path.delimiter)
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .includes(dir);
+}
+
+function buildShortcutScript(graphLaunch: GraphLaunchSpec, command: string): string {
+  const args = [...graphLaunch.args, command]
+    .map(shellQuote)
+    .join(' ');
+  return [
+    '#!/bin/sh',
+    `exec ${shellQuote(graphLaunch.command)} ${args} "$@"`,
+    '',
+  ].join('\n');
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
 async function copyPath(from: string, to: string): Promise<void> {

@@ -63,6 +63,7 @@ The installer will:
 - rewrite supported client configs so the front door is only `mcp-kingdom`
 - trim Claude MCP permissions down to the `mcp-kingdom` front door only
 - clean stale backend `mcp__server__tool` entries from `~/.claude/settings.local.json`
+- install helper commands like `claude-stats`, `opencode-stats`, and `mcp-kingdom-rediscover`
 - create backups before overwriting config files
 
 After install, you can run a broad verification pass with:
@@ -76,7 +77,21 @@ npm run verify
 - it does the same discovery and policy build as setup
 - it prints which files would be created or updated
 - it shows discovered backends, duplicate resolutions, and policy counts
+- it shows helper commands that would be installed globally
 - it does not mutate client configs or snapshots
+
+`npm run setup` is interactive by default in a terminal:
+
+- it shows an install banner
+- it explains what setup will do
+- it prints the file plan before changing anything
+- it asks for confirmation before writing files
+
+If you want non-interactive behavior:
+
+```sh
+node dist/cli.js install --yes
+```
 
 You can also run it directly:
 
