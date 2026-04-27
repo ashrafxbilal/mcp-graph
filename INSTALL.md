@@ -299,17 +299,43 @@ The stats command reads local Claude JSONL logs from `~/.claude/projects` by def
 - fresh-token and total-token comparisons
 - a per-day breakdown for the requested window
 
+## OpenCode Usage Comparisons
+
+Compare today against the previous week:
+
+```sh
+npm run opencode-stats
+```
+
+Compare a specific day against the previous 7 days:
+
+```sh
+npm run opencode-stats -- --date 2026-04-27 --compare-days 7
+```
+
+Filter to a single project:
+
+```sh
+node dist/cli.js opencode-stats --project /absolute/project/path --date today
+```
+
+The stats command reads the local OpenCode SQLite database and reports:
+
+- target-day totals
+- previous-window totals and daily averages
+- fresh-token, total-token, and cost comparisons
+- a per-day breakdown for the requested window
+
 ## Adding New MCPs Later
 
 If you add or remove MCPs after the first install:
 
 ```sh
-npm run doctor
-npm run setup
+npm run rediscover
 npm run verify
 ```
 
-`mcp-kingdom` will rediscover whatever MCPs exist on that machine, refresh `~/.mcp-kingdom/backends.json`, regenerate the policy, and keep the active clients pointed only at `mcp-kingdom`.
+`npm run rediscover` is the fast path after adding MCPs. It will rediscover whatever MCPs exist on that machine, refresh `~/.mcp-kingdom/backends.json`, regenerate the policy, and rewrite supported clients back to only `mcp-kingdom`.
 
 This is why the repo works for other users with different MCP inventories too: discovery is local and dynamic, not hardcoded to your current machine.
 

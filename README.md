@@ -237,24 +237,52 @@ The report includes:
 - fresh-token and total-token comparisons
 - per-day breakdown for the comparison window
 
+## OpenCode Usage Stats
+
+You can now compare OpenCode usage from the local `opencode.db` directly from the repo.
+
+Default: compare today against the previous 7 days:
+
+```sh
+npm run opencode-stats
+```
+
+Compare a specific day:
+
+```sh
+npm run opencode-stats -- --date 2026-04-27 --compare-days 7
+```
+
+Filter to one project:
+
+```sh
+node dist/cli.js opencode-stats --project /absolute/project/path --date today
+```
+
+The report includes:
+
+- target-day totals
+- previous-window totals and daily averages
+- fresh-token, total-token, and cost comparisons
+- per-day breakdown for the comparison window
+
 ## Adding New MCPs
 
 If you add a new MCP later, you do not edit `mcp-kingdom` itself.
 
-Add the MCP to your normal client config first, then refresh the kingdom snapshot:
+Add the MCP to your normal client config first, then run:
 
 ```sh
-npm run doctor
-npm run setup
+npm run rediscover
 npm run verify
 ```
 
-What happens on the next setup run:
+`npm run rediscover` is the intended post-change command:
 
 - `mcp-kingdom` re-discovers MCPs from the local machine
 - it merges the newly discovered MCPs into `~/.mcp-kingdom/backends.json`
 - it regenerates `~/.mcp-kingdom/policy.json`
-- your active clients remain pointed only at `mcp-kingdom`
+- it rewrites supported clients back to only `mcp-kingdom`, so you do not accidentally leave the new MCP active directly and lose the token benefit
 
 ## Different Users, Different MCPs
 
@@ -289,6 +317,13 @@ env = { MCP_KINGDOM_CONFIG_PATH = "/Users/your-user/.mcp-kingdom/backends.json",
 As with Claude, the token benefit comes only if `mcp-kingdom` is the primary active MCP surface.
 
 Codex does not currently expose a client-side per-MCP tool allowlist in `config.toml`. `mcp-kingdom` therefore uses the generated runtime policy file as the effective backend allowlist for Codex installs.
+
+Practical Codex optimization with this repo:
+
+- keep only `mcp-kingdom` under `[mcp_servers]` in [config.toml](/Users/bilal.ashraf/.codex/config.toml)
+- use `npm run rediscover` after adding MCPs instead of leaving direct MCP entries active beside `mcp-kingdom`
+- keep duplicate backend aliases out of the snapshot when possible, because they increase tool search noise even if `call_tool` stays lazy
+- use `doctor` and `verify` to make sure Codex still sees one front door and the backends remain behind it
 
 ## OpenCode Integration
 
@@ -342,10 +377,22 @@ node dist/cli.js inspect
 node dist/cli.js doctor
 ```
 
+### Re-discover MCPs after adding one
+
+```sh
+node dist/cli.js rediscover
+```
+
 ### Summarize Claude usage
 
 ```sh
 node dist/cli.js claude-stats --date today --compare-days 7
+```
+
+### Summarize OpenCode usage
+
+```sh
+node dist/cli.js opencode-stats --date today --compare-days 7
 ```
 
 With backend tool counts:

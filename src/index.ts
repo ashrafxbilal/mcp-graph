@@ -5,6 +5,7 @@ export * from './config.js';
 export * from './constants.js';
 export * from './doctor.js';
 export * from './install.js';
+export * from './opencode-stats.js';
 export * from './oauth.js';
 export * from './policy.js';
 export * from './server.js';
