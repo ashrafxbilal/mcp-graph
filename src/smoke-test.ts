@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { GraphRegistry } from './clients.js';
 import { loadMergedServerConfigs } from './config.js';
+import { GRAPH_TOOL_NAMES } from './constants.js';
 import { installMcpGraph } from './install.js';
 import { AuditLogger } from './logger.js';
 import { safeJsonStringify } from './utils.js';
@@ -149,15 +150,14 @@ async function runDiscoveryAndInstallSmokeTest({
     permissions?: { allow?: string[] };
   };
   assertSingleFrontDoor(claudeSettings.mcpServers, '.claude/settings.json');
-  for (const toolName of [
-    'mcp__mcp-kingdom__list_servers',
-    'mcp__mcp-kingdom__search_tools',
-    'mcp__mcp-kingdom__call_tool',
-    'mcp__project-backend__catalog',
-  ]) {
-    if (!claudeSettings.permissions?.allow?.includes(toolName)) {
-      throw new Error(`Expected Claude settings allowlist to include ${toolName}`);
+  for (const toolName of GRAPH_TOOL_NAMES) {
+    const permission = `mcp__mcp-kingdom__${toolName}`;
+    if (!claudeSettings.permissions?.allow?.includes(permission)) {
+      throw new Error(`Expected Claude settings allowlist to include ${permission}`);
     }
+  }
+  if (claudeSettings.permissions?.allow?.includes('mcp__project-backend__catalog')) {
+    throw new Error('Claude settings allowlist should not retain backend MCP permissions after install.');
   }
 
   const opencodeConfig = JSON.parse(await fs.readFile(path.join(tempHome, '.config', 'opencode', 'opencode.json'), 'utf8')) as {
